@@ -68,16 +68,17 @@ public:
     TokenTyID,     ///< Tokens
 
     // Derived types... see DerivedTypes.h file.
-    IntegerTyID,        ///< Arbitrary bit width integers
+    IntegerTyID,         ///< Arbitrary bit width integers
     ByteTyID,           ///< Arbitrary bit width bytes
-    FunctionTyID,       ///< Functions
-    PointerTyID,        ///< Pointers
-    StructTyID,         ///< Structures
-    ArrayTyID,          ///< Arrays
-    FixedVectorTyID,    ///< Fixed width SIMD vector type
-    ScalableVectorTyID, ///< Scalable SIMD vector type
-    TypedPointerTyID,   ///< Typed pointer used by some GPU targets
-    TargetExtTyID,      ///< Target extension type
+    FunctionTyID,        ///< Functions
+    PointerTyID,         ///< Pointers
+    StructTyID,          ///< Structures
+    ArrayTyID,           ///< Arrays
+    FixedVectorTyID,     ///< Fixed width SIMD vector type
+    ScalableVectorTyID,  ///< Scalable SIMD vector type
+    TypedPointerTyID,    ///< Typed pointer used by some GPU targets
+    TargetExtTyID,       ///< Target extension type
+    SizedCapabilityTyID, ///< Fixed-size CHERI capability type
   };
 
 private:
@@ -283,6 +284,11 @@ public:
   /// True if this is an instance of PointerType.
   bool isPointerTy() const { return getTypeID() == PointerTyID; }
 
+  /// True if this is an instance of PointerType.
+  bool isSizedCapabilityTy() const {
+    return getTypeID() == SizedCapabilityTyID;
+  }
+
   /// Return true if this is a pointer type or a vector of pointer types.
   bool isPtrOrPtrVectorTy() const { return getScalarType()->isPointerTy(); }
 
@@ -329,7 +335,7 @@ public:
     // If it's a primitive, it is always sized.
     if (getTypeID() == IntegerTyID || isFloatingPointTy() ||
         getTypeID() == PointerTyID || getTypeID() == X86_AMXTyID ||
-        getTypeID() == ByteTyID)
+        getTypeID() == ByteTyID || getTypeID() == SizedCapabilityTyID)
       return true;
     // If it is not something that can have a size (e.g. a function or label),
     // it doesn't have a size.
