@@ -153,8 +153,12 @@ TypeSize EVT::getExtendedSizeInBits() const {
   assert(isExtended() && "Type is not extended!");
   if (IntegerType *ITy = dyn_cast<IntegerType>(LLVMTy))
     return TypeSize::getFixed(ITy->getBitWidth());
-  if (VectorType *VTy = dyn_cast<VectorType>(LLVMTy))
-    return VTy->getPrimitiveSizeInBits();
+  if (VectorType *VTy = dyn_cast<VectorType>(LLVMTy)) {
+    ElementCount EC = VTy->getElementCount();
+    return {getExtendedVectorElementType().getFixedSizeInBits() *
+                EC.getKnownMinValue(),
+            EC.isScalable()};
+  }
   llvm_unreachable("Unrecognized extended type!");
 }
 
@@ -234,6 +238,10 @@ Type *EVT::getTypeForEVT(LLVMContext &Context) const {
   case MVT::externref: return Type::getWasm_ExternrefTy(Context);
   case MVT::funcref: return Type::getWasm_FuncrefTy(Context);
   case MVT::Metadata: return Type::getMetadataTy(Context);
+  case MVT::c64:
+    return TargetExtType::get(Context, "cheri.capability", {}, {64});
+  case MVT::c128:
+    return TargetExtType::get(Context, "cheri.capability", {}, {128});
 #define GET_VT_EVT(Ty, EVT) case MVT::Ty: return EVT;
 #include "llvm/CodeGen/GenVT.inc"
 #undef GET_VT_EVT
@@ -282,6 +290,8 @@ MVT MVT::getVT(Type *Ty, bool HandleUnknown){
 
       return MVT::getRISCVVectorTupleVT(Sz * NF, NF);
     }
+    if (TargetExtTy->getName() == "cheri.capability")
+      return getCheriCapabilityVT(TargetExtTy->getIntParameter(0));
     if (HandleUnknown)
       return MVT(MVT::Other);
     llvm_unreachable("Unknown target ext type!");

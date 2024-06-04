@@ -994,6 +994,16 @@ Expected<TargetExtType *> TargetExtType::checkParams(TargetExtType *TTy) {
                              "should have no type parameters "
                              "and at most one integer parameter");
   }
+  if (TTy->Name == "cheri.capability") {
+    if (TTy->getNumTypeParameters() != 0 || TTy->getNumIntParameters() != 1)
+      return createStringError("target extension type cheri.capability "
+                               "should have no type parameters "
+                               "and one integer parameter");
+    unsigned BitWidth = TTy->getIntParameter(0);
+    if (BitWidth != 64 && BitWidth != 128)
+      return createStringError(
+          "target extension type cheri.capability bitwidth must be 64 or 128");
+  }
 
   return TTy;
 }
@@ -1100,6 +1110,10 @@ static TargetTypeInfo getTargetTypeInfo(const TargetExtType *Ty) {
     return TargetTypeInfo(Type::getInt32Ty(C), TargetExtType::CanBeLocal,
                           TargetExtType::CanBeVectorElement);
   }
+
+  if (Name == "cheri.capability")
+    return TargetTypeInfo(Type::getIntNTy(C, Ty->getIntParameter(0)),
+                          TargetExtType::CanBeVectorElement);
 
   // Opaque types in the WebAssembly name space.
   if (Name == "wasm.funcref" || Name == "wasm.externref")
