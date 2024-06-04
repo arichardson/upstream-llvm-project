@@ -224,6 +224,8 @@ TypeSize Type::getPrimitiveSizeInBits() const {
     assert(!ETS.isScalable() && "Vector type should have fixed-width elements");
     return {ETS.getFixedValue() * EC.getKnownMinValue(), EC.isScalable()};
   }
+  case Type::SizedCapabilityTyID:
+    return TypeSize::getFixed(cast<SizedCapabilityType>(this)->getBitWidth());
   default:
     return TypeSize::getFixed(0);
   }
@@ -855,7 +857,7 @@ VectorType *VectorType::get(Type *ElementType, ElementCount EC) {
 bool VectorType::isValidElementType(Type *ElemTy) {
   if (ElemTy->isIntegerTy() || ElemTy->isFloatingPointTy() ||
       ElemTy->isPointerTy() || ElemTy->getTypeID() == TypedPointerTyID ||
-      ElemTy->isByteTy())
+      ElemTy->isByteTy() || ElemTy->isSizedCapabilityTy())
     return true;
   if (auto *TTy = dyn_cast<TargetExtType>(ElemTy))
     return TTy->hasProperty(TargetExtType::CanBeVectorElement);
@@ -870,8 +872,8 @@ FixedVectorType *FixedVectorType::get(Type *ElementType, unsigned NumElts) {
   assert(NumElts > 0 && "#Elements of a VectorType must be greater than 0");
   assert(isValidElementType(ElementType) && "Element type of a VectorType must "
                                             "be an integer, floating point, "
-                                            "pointer type, or a valid target "
-                                            "extension type.");
+                                            "pointer type, sized capability or "
+                                            "a valid target extension type.");
 
   auto EC = ElementCount::getFixed(NumElts);
 
@@ -892,8 +894,9 @@ ScalableVectorType *ScalableVectorType::get(Type *ElementType,
                                             unsigned MinNumElts) {
   assert(MinNumElts > 0 && "#Elements of a VectorType must be greater than 0");
   assert(isValidElementType(ElementType) && "Element type of a VectorType must "
-                                            "be an integer, floating point, or "
-                                            "pointer type.");
+                                            "be an integer, floating point, "
+                                            "pointer, or sized capability "
+                                            "type.");
 
   auto EC = ElementCount::getScalable(MinNumElts);
 
@@ -1152,4 +1155,21 @@ Type *TargetExtType::getLayoutType() const {
 bool TargetExtType::hasProperty(Property Prop) const {
   uint64_t Properties = getTargetTypeInfo(this).Properties;
   return (Properties & Prop) == Prop;
+}
+
+//===----------------------------------------------------------------------===//
+//                     SizedCapabilityType Implementation
+//===----------------------------------------------------------------------===//
+
+SizedCapabilityType *SizedCapabilityType::get(LLVMContext &C,
+                                              unsigned NumBits) {
+  assert(NumBits >= MIN_CAP_BITS && "bitwidth too small");
+  assert(NumBits <= MAX_CAP_BITS && "bitwidth too large");
+
+  SizedCapabilityType *&Entry = C.pImpl->SizedCapabilityTypes[NumBits];
+
+  if (!Entry)
+    Entry = new (C.pImpl->Alloc) SizedCapabilityType(C, NumBits);
+
+  return Entry;
 }
