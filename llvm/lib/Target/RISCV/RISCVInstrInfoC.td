@@ -43,6 +43,12 @@ def simm6 : RISCVSImmLeafOp<6> {
   }];
 }
 
+// A 6-bit immediate that will be used with C_ADDI as a NegImm.
+// Therefore the range is -31 to 32 instead of -32 to 31.
+def neg_simm6nonzero : RISCVOp,
+                       ImmLeaf<XLenVT, [{ return (Imm != 0) && isInt<6>(-Imm);}]> {
+}
+
 def simm6nonzero : RISCVOp,
                    ImmLeaf<XLenVT, [{return (Imm != 0) && isInt<6>(Imm);}]> {
   let ParserMatchClass = SImmAsmOperand<6, "NonZero">;
@@ -131,21 +137,29 @@ def uimm8_lsb000 : RISCVOp,
   }];
 }
 
-// A 9-bit signed immediate where the least significant bit is zero.
-def bare_simm9_lsb0 : Operand<OtherVT>,
-                      ImmLeaf<XLenVT, [{return isShiftedInt<8, 1>(Imm);}]> {
-  let ParserMatchClass = BareSImmNLsb0AsmOperand<9>;
-  let PrintMethod = "printBranchOperand";
-  let EncoderMethod = "getImmOpValueAsrN<1>";
-  let DecoderMethod = "decodeSImmOperandAndLslN<9, 1>";
+class BareSImm9Lsb0MaybeSym : Operand<OtherVT> {
   let MCOperandPredicate = [{
     int64_t Imm;
     if (MCOp.evaluateAsConstantImm(Imm))
       return isShiftedInt<8, 1>(Imm);
     return MCOp.isBareSymbolRef();
   }];
+}
+
+// A 9-bit signed immediate where the least significant bit is zero.
+def bare_simm9_lsb0 : BareSImm9Lsb0MaybeSym,
+                      ImmLeaf<XLenVT, [{return isShiftedInt<8, 1>(Imm);}]> {
+  let ParserMatchClass = BareSImmNLsb0AsmOperand<9>;
+  let PrintMethod = "printBranchOperand";
+  let EncoderMethod = "getImmOpValueAsrN<1>";
+  let DecoderMethod = "decodeSImmOperandAndLslN<9, 1>";
   let OperandType = "OPERAND_PCREL";
 }
+
+// We need this (sort of) duplicate definition since adding ImmLeaf to
+// bare_simm9_lsb0 above makes it not sit well with codegen patterns where it
+// is used to match with a basic block (eg. BccPat<>).
+def bare_simm9_lsb0_bb : BareSImm9Lsb0MaybeSym;
 
 // A 9-bit unsigned immediate where the least significant three bits are zero.
 def uimm9_lsb000 : RISCVOp,
@@ -966,3 +980,36 @@ let Predicates = [HasStdExtCOrZcd, HasStdExtD] in {
                     (C_FSDSP FPR64:$rs2, SPMem:$rs1, uimm9_lsb000:$imm)>;
 } // Predicates = [HasStdExtCOrZcd, HasStdExtD]
 
+
+// class BrccCompressImm<CondCode Cond, RVInst16CB Inst>
+//     : Pat<(riscv_brcc GPRC:$lhs, simm6:$Constant, Cond, bb:$place),
+//           (Inst (C_ADDI GPRC:$lhs, (NegImm simm6:$Constant)), bare_simm9_lsb0_bb:$place)>;
+// 
+// let Predicates = [HasStdExtZca] in {
+//   // Try using a 4-byte c.addi+c.beqz/c.bnez instead of a 6-byte c.li+beq/bne
+//   // sequence whenever possible.
+//   // TODO: this overlaps with Zibi, do we need both?
+//   def : BrccCompressImm<SETEQ, C_BEQZ>;
+//   def : BrccCompressImm<SETNE, C_BNEZ>;
+// }
+// 
+
+
+// Try using a 4-byte c.addi+c.beqz/c.bnez instead of a 6-byte c.li+beq/bne
+// sequence whenever possible.
+// Note: we use ADDI here instead of C_ADDI to prefer an uncompressed addi over
+// a c.mv+c.addi+c.beqz sequence where
+class BrccCompressImm6<CondCode Cond, RVInstB Inst>
+    : Pat<(riscv_brcc GPRC:$lhs, neg_simm6nonzero:$Constant, Cond, bb:$place),
+          (Inst (ADDI GPRC:$lhs, (NegImm neg_simm6nonzero:$Constant)), (XLenVT X0), bare_simm9_lsb0_bb:$place)>;
+
+let AddedComplexity = 1, Predicates = [HasStdExtZca] in {
+  // TODO: We should be able to directly emit C_BEQZ/C_BNEZ here since we are
+  // already using bare_simm9_lsb0_bb, but that causes crashes since C_BEQZ and
+  // C_BNEZ are not handled everywhere.
+  // For now just let the compression patterns deal with it.
+  // FIXME: this is not always the best pattern to use since we may need to move
+  // some registers into the ones usable by C_ADDI
+  def : BrccCompressImm6<SETEQ, BEQ>;
+  def : BrccCompressImm6<SETNE, BNE>;
+}
