@@ -1,19 +1,19 @@
-// RUN: llvm-mc --triple=riscv32 --mattr=+experimental-y,+d,+q,+zfh --show-encoding --show-inst < %s \
+// RUN: llvm-mc --triple=riscv32 --mattr=+experimental-y,+d,+q,+zfh --riscv-verify-mcinst --show-encoding --show-inst < %s \
 // RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-CAP %s
-// RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-y,+d,+q,+zfh --riscv-add-build-attributes < %s \
+// RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-y,+d,+q,+zfh --riscv-verify-mcinst --riscv-add-build-attributes < %s \
 // RUN:   | llvm-objdump -M no-aliases -d -r --no-print-imm-hex - | FileCheck --check-prefixes=CHECK,CHECK-OBJ %s
-// RUN: llvm-mc --triple=riscv32 --mattr=+experimental-zyhybrid,+d,+q,+zfh --show-encoding --show-inst < %s \
+// RUN: llvm-mc --triple=riscv32 --mattr=+experimental-zyhybrid,+d,+q,+zfh --riscv-verify-mcinst --show-encoding --show-inst < %s \
 // RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-INT %s
-// RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-zyhybrid,+d,+q,+zfh --riscv-add-build-attributes < %s \
+// RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-zyhybrid,+d,+q,+zfh --riscv-verify-mcinst --riscv-add-build-attributes < %s \
 // RUN:   | llvm-objdump -M no-aliases -d -r --no-print-imm-hex - | FileCheck --check-prefixes=CHECK,CHECK-OBJ %s
 
-// RUN: llvm-mc --triple=riscv64 --mattr=+experimental-y,+d,+q,+zfh --show-encoding --show-inst < %s \
+// RUN: llvm-mc --triple=riscv64 --mattr=+experimental-y,+d,+q,+zfh --riscv-verify-mcinst --show-encoding --show-inst < %s \
 // RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-CAP %s
-// RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-y,+d,+q,+zfh --riscv-add-build-attributes < %s \
+// RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-y,+d,+q,+zfh --riscv-verify-mcinst --riscv-add-build-attributes < %s \
 // RUN:   | llvm-objdump -M no-aliases -d -r --no-print-imm-hex - | FileCheck --check-prefixes=CHECK,CHECK-OBJ %s
-// RUN: llvm-mc --triple=riscv64 --mattr=+experimental-zyhybrid,+d,+q,+zfh --show-encoding --show-inst < %s \
+// RUN: llvm-mc --triple=riscv64 --mattr=+experimental-zyhybrid,+d,+q,+zfh --riscv-verify-mcinst --show-encoding --show-inst < %s \
 // RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-INT %s
-// RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-zyhybrid,+d,+q,+zfh --riscv-add-build-attributes < %s \
+// RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-zyhybrid,+d,+q,+zfh --riscv-verify-mcinst --riscv-add-build-attributes < %s \
 // RUN:   | llvm-objdump -M no-aliases -d -r --no-print-imm-hex - | FileCheck --check-prefixes=CHECK,CHECK-OBJ %s
 
 /// Both capability & normal RISC-V instruction use the same encoding, and the
