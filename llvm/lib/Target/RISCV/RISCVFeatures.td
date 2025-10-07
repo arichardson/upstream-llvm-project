@@ -60,10 +60,9 @@ class RISCVExtensionBitmask<bits<3> groupID, int bitPos> {
 
 // Version of RISCVExtension to be used for Experimental extensions. This
 // sets the Experimental flag and prepends experimental- to the -mattr name.
-class RISCVExperimentalExtension<int major, int minor, string desc,
-                                 list<SubtargetFeature> implies = [],
-                                 string fieldname = !subst("Feature", "Has", NAME),
-                                 string value = "true">
+class RISCVExperimentalExtension<
+    int major, int minor, string desc, list<SubtargetFeature> implies = [],
+    string fieldname = !subst("Feature", "Has", NAME), string value = "true">
     : RISCVExtension<major, minor, desc, implies, fieldname, value, true> {
   let Experimental = true;
 }
@@ -1157,7 +1156,7 @@ def IsCapMode
     : Predicate<"Subtarget->isCapMode()">,
       AssemblerPredicate<(all_of FeatureCapMode), "Capability Pointer Mode">;
 def NotCapMode : Predicate<"!Subtarget->isCapMode()">,
-                 AssemblerPredicate<(all_of(not FeatureCapMode)),
+                 AssemblerPredicate<(all_of (not FeatureCapMode)),
                                     "Not Capability Pointer Mode">;
 
 //===----------------------------------------------------------------------===//
