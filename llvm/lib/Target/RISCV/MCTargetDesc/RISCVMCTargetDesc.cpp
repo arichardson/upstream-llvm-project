@@ -247,7 +247,7 @@ public:
       auto NumDefs = Info->get(Inst.getOpcode()).getNumDefs();
       for (unsigned I = 0; I < NumDefs; ++I) {
         auto DefReg = Inst.getOperand(I).getReg();
-        if (isGPR(DefReg))
+        if (isGPR(DefReg) || isYGPR(DefReg))
           setGPRState(DefReg, std::nullopt);
       }
       break;
