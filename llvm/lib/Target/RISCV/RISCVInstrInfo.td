@@ -761,7 +761,7 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1,
 def LUI : RVInstU<OPC_LUI, (outs GPR:$rd), (ins uimm20_lui:$imm20),
                   "lui", "$rd, $imm20">, Sched<[WriteIALU]>;
 
-def AUIPC : RVInstU<OPC_AUIPC, (outs GPR:$rd), (ins uimm20_auipc:$imm20),
+def AUIPC : RVInstU<OPC_AUIPC, (outs PtrReg:$rd), (ins uimm20_auipc:$imm20),
                     "auipc", "$rd, $imm20">, Sched<[WriteIALU]>;
 
 def JAL : RVInstJ<OPC_JAL, (outs GPR:$rd), (ins simm21_lsb0_jal:$imm20),
@@ -1244,7 +1244,7 @@ def : InstAlias<"zext.b $rd, $rs", (ANDI GPR:$rd, GPR:$rs, 0xFF)>;
 
 // lpad is always available in the assembler and disassembler, even without
 // enabling Zicfilp, per psABI decision (riscv-non-isa/riscv-elf-psabi-doc#474).
-def : InstAlias<"lpad $imm20", (AUIPC X0, uimm20:$imm20)>;
+def : InstAlias<"lpad $imm20", (AUIPC NullReg, uimm20:$imm20)>;
 
 //===----------------------------------------------------------------------===//
 // .insn directive instructions
@@ -1919,7 +1919,7 @@ def PseudoMovImm : Pseudo<(outs GPR:$dst), (ins i32imm:$imm), []>,
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, Size = 8,
     isCodeGenOnly = 0 in
-def PseudoLLA : Pseudo<(outs GPR:$dst), (ins bare_symbol:$src), [],
+def PseudoLLA : Pseudo<(outs PtrReg:$dst), (ins bare_symbol:$src), [],
                        "lla", "$dst, $src">;
 
 // Refer to comment on PseudoLI for explanation of Size=32
@@ -1934,12 +1934,12 @@ def : Pat<(riscv_lla tconstpool:$in), (PseudoLLA tconstpool:$in)>;
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0, Size = 8,
     isCodeGenOnly = 0 in
-def PseudoLGA : Pseudo<(outs GPR:$dst), (ins bare_symbol:$src), [],
+def PseudoLGA : Pseudo<(outs PtrReg:$dst), (ins bare_symbol:$src), [],
                        "lga", "$dst, $src">;
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0, Size = 8,
     isCodeGenOnly = 0 in
-def PseudoLA : Pseudo<(outs GPR:$dst), (ins bare_symbol:$src), [],
+def PseudoLA : Pseudo<(outs PtrReg:$dst), (ins bare_symbol:$src), [],
                       "la", "$dst, $src">;
 
 // Refer to comment on PseudoLI for explanation of Size=32
@@ -1950,16 +1950,16 @@ def PseudoLAImm : Pseudo<(outs GPR:$rd), (ins ixlenimm_li_restricted:$imm), [],
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0, Size = 8,
     isCodeGenOnly = 0 in
-def PseudoLA_TLS_IE : Pseudo<(outs GPR:$dst), (ins bare_symbol:$src), [],
+def PseudoLA_TLS_IE : Pseudo<(outs PtrReg:$dst), (ins bare_symbol:$src), [],
                              "la.tls.ie", "$dst, $src">;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, Size = 8,
     isCodeGenOnly = 0 in
-def PseudoLA_TLS_GD : Pseudo<(outs GPR:$dst), (ins bare_symbol:$src), [],
+def PseudoLA_TLS_GD : Pseudo<(outs PtrReg:$dst), (ins bare_symbol:$src), [],
                              "la.tls.gd", "$dst, $src">;
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0, Size = 32, isCodeGenOnly = 0 in
-def PseudoLA_TLSDESC : Pseudo<(outs GPR:$dst), (ins bare_symbol:$src), [],
+def PseudoLA_TLSDESC : Pseudo<(outs PtrReg:$dst), (ins bare_symbol:$src), [],
                              "la.tlsdesc", "$dst, $src">;
 
 def TLSDESCCallSymbol : AsmOperandClass {

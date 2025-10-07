@@ -352,6 +352,10 @@ multiclass PtrRegClassByHwMode<RegisterClass AddrRC, RegisterClass CapRC> {
                             [AddrRC, AddrRC, CapRC, CapRC]>;
 }
 
+// This register class represents a pointer: YLen in capability mode, XLen
+// otherwise. Used for mode-dependent instructions such as AUIPC/JALR.
+defm PtrReg : PtrRegClassByHwMode<GPR, YGPR>;
+
 def GPRX0 : GPRRegisterClass<(add X0)>;
 
 def GPRX1 : GPRRegisterClass<(add X1)> {
@@ -443,6 +447,8 @@ def GPRNoX31 : GPRRegisterClass<(sub GPR, X31)> {
   let DiagnosticString = "register must be a GPR excluding t6 (x31)";
 }
 
+def NullReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV32Y, RV64Y],
+                                       [X0,    X0,    X0_Y,  X0_Y]>;
 //===----------------------------------------------------------------------===//
 // Even-Odd GPR Pairs
 //===----------------------------------------------------------------------===//

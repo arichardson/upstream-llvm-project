@@ -84,6 +84,20 @@ class RISCVAsmParser : public MCTargetAsmParser {
   SMLoc getLoc() const { return getParser().getTok().getLoc(); }
   bool isRV64() const { return getSTI().hasFeature(RISCV::Feature64Bit); }
   bool isRVE() const { return getSTI().hasFeature(RISCV::FeatureStdExtE); }
+  /// \return When true, pointers should use YGPR instead of GPR
+  bool isRVYCapMode() const {
+    return getSTI().hasFeature(RISCV::FeatureStdExtY) &&
+           !STI->hasFeature(RISCV::FeatureVendorXLLVMRVYIPM);
+  }
+  unsigned getPtrAddiOpcode() const {
+    return isRVYCapMode() ? RISCV::ADDIY : RISCV::ADDI;
+  }
+  unsigned getPtrLoadOpcode() const {
+    if (isRVYCapMode())
+      return RISCV::LY;
+    return isRV64() ? RISCV::LD : RISCV::LW;
+  }
+
   bool enableExperimentalExtension() const {
     return getSTI().hasFeature(RISCV::Experimental);
   }
@@ -150,11 +164,11 @@ class RISCVAsmParser : public MCTargetAsmParser {
 
   // Helper to emit pseudo instruction "la.tls.ie" used in initial-exec TLS
   // addressing.
-  void emitLoadTLSIEAddress(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out);
+  bool emitLoadTLSIEAddress(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out);
 
   // Helper to emit pseudo instruction "la.tls.gd" used in global-dynamic TLS
   // addressing.
-  void emitLoadTLSGDAddress(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out);
+  bool emitLoadTLSGDAddress(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out);
 
   // Helper to emit pseudo load/store instruction with a symbol.
   void emitLoadStoreSymbol(MCInst &Inst, unsigned Opcode, SMLoc IDLoc,
@@ -1399,6 +1413,8 @@ static bool regClassIsYGPR(const MCRegisterClass &RC) {
 static MatchClassKind remapRegClassByHwMode(MatchClassKind Kind, bool Purecap) {
   // TODO: Generate this mapping automatically from TableGen.
   switch (Kind) {
+  case MCK_RegByHwMode_PtrReg:
+    return Purecap ? MCK_YGPR : MCK_GPR;
   case MCK_RegByHwMode_BasePtrRegClass:
     return Purecap ? MCK_YGPRNoX0 : MCK_GPR;
   case MCK_RegByHwMode_BasePtrCRegClass:
@@ -1425,17 +1441,15 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
       RISCVMCRegisterClasses[RISCV::FPR64CRegClassID].contains(Reg);
   bool IsRegVR = RISCVMCRegisterClasses[RISCV::VRRegClassID].contains(Reg);
 
-  // In RVY mode, classes such as BasePtrRC register class should select
-  // capability registers for the base pointer operands, otherwise we use GPRs.
+  // In RVY mode, the various Ptr register class should select capability X*_Y
+  // registers for the base pointer operands, otherwise we use the normal GPRs.
   // This is not currently handled automatically by tablegen so we have to
   // manually remap the MCK_ values and also manually handle the register
   // restrictions (such as NoX0) for ByHwMode classes.
   // TODO: Is there any way we could do this in tablegen automatically?
   bool NeedManualRegClassCheck = false;
   if (Kind > MCK_LAST_REGISTER && Kind <= MCK_LAST_REGCLASS_BY_HWMODE) {
-    bool Purecap = STI->hasFeature(RISCV::FeatureStdExtY) &&
-                   !STI->hasFeature(RISCV::FeatureVendorXLLVMRVYIPM);
-    Kind = remapRegClassByHwMode(Kind, Purecap);
+    Kind = remapRegClassByHwMode(Kind, isRVYCapMode());
   }
   const MCRegisterClass *CheckRC = getRegClassFromMatchKind(Kind);
   // YGPR and GPR use the same names, remap and check them if necessary.
@@ -3706,8 +3720,8 @@ void RISCVAsmParser::emitLoadLocalAddress(MCInst &Inst, SMLoc IDLoc,
   //             ADDI rdest, rdest, %pcrel_lo(TmpLabel)
   MCRegister DestReg = Inst.getOperand(0).getReg();
   const MCExpr *Symbol = Inst.getOperand(1).getExpr();
-  emitAuipcInstPair(DestReg, DestReg, Symbol, RISCV::S_PCREL_HI, RISCV::ADDI,
-                    IDLoc, Out);
+  emitAuipcInstPair(DestReg, DestReg, Symbol, RISCV::S_PCREL_HI,
+                    getPtrAddiOpcode(), IDLoc, Out);
 }
 
 void RISCVAsmParser::emitLoadGlobalAddress(MCInst &Inst, SMLoc IDLoc,
@@ -3720,7 +3734,7 @@ void RISCVAsmParser::emitLoadGlobalAddress(MCInst &Inst, SMLoc IDLoc,
   //             Lx rdest, %pcrel_lo(TmpLabel)(rdest)
   MCRegister DestReg = Inst.getOperand(0).getReg();
   const MCExpr *Symbol = Inst.getOperand(1).getExpr();
-  unsigned SecondOpcode = isRV64() ? RISCV::LD : RISCV::LW;
+  unsigned SecondOpcode = getPtrLoadOpcode();
   emitAuipcInstPair(DestReg, DestReg, Symbol, RISCV::S_GOT_HI, SecondOpcode,
                     IDLoc, Out);
 }
@@ -3734,13 +3748,17 @@ void RISCVAsmParser::emitLoadAddress(MCInst &Inst, SMLoc IDLoc,
   //   lla rdest, symbol
   // or (for PIC)
   //   lga rdest, symbol
-  if (ParserOptions.IsPicEnabled)
+  // Note: in RVY capability mode we always emit the GOT-indirect variant for
+  // la to ensure that the resulting pointer has correct permissions and bounds
+  // (which may not be the case for pc-relative pointer generation). Code that
+  // knows PC-relative is safe must must use lla to avoid GOT indirection.
+  if (ParserOptions.IsPicEnabled || isRVYCapMode())
     emitLoadGlobalAddress(Inst, IDLoc, Out);
   else
     emitLoadLocalAddress(Inst, IDLoc, Out);
 }
 
-void RISCVAsmParser::emitLoadTLSIEAddress(MCInst &Inst, SMLoc IDLoc,
+bool RISCVAsmParser::emitLoadTLSIEAddress(MCInst &Inst, SMLoc IDLoc,
                                           MCStreamer &Out) {
   // The load TLS IE address pseudo-instruction "la.tls.ie" is used in
   // initial-exec TLS model addressing of global symbols:
@@ -3748,14 +3766,16 @@ void RISCVAsmParser::emitLoadTLSIEAddress(MCInst &Inst, SMLoc IDLoc,
   // expands to
   //   TmpLabel: AUIPC rdest, %tls_ie_pcrel_hi(symbol)
   //             Lx rdest, %pcrel_lo(TmpLabel)(rdest)
+  if (isRVYCapMode())
+    return Error(IDLoc, "TLS pseudos are not supported in capability mode yet");
   MCRegister DestReg = Inst.getOperand(0).getReg();
   const MCExpr *Symbol = Inst.getOperand(1).getExpr();
-  unsigned SecondOpcode = isRV64() ? RISCV::LD : RISCV::LW;
   emitAuipcInstPair(DestReg, DestReg, Symbol, ELF::R_RISCV_TLS_GOT_HI20,
-                    SecondOpcode, IDLoc, Out);
+                    getPtrLoadOpcode(), IDLoc, Out);
+  return false;
 }
 
-void RISCVAsmParser::emitLoadTLSGDAddress(MCInst &Inst, SMLoc IDLoc,
+bool RISCVAsmParser::emitLoadTLSGDAddress(MCInst &Inst, SMLoc IDLoc,
                                           MCStreamer &Out) {
   // The load TLS GD address pseudo-instruction "la.tls.gd" is used in
   // global-dynamic TLS model addressing of global symbols:
@@ -3763,10 +3783,13 @@ void RISCVAsmParser::emitLoadTLSGDAddress(MCInst &Inst, SMLoc IDLoc,
   // expands to
   //   TmpLabel: AUIPC rdest, %tls_gd_pcrel_hi(symbol)
   //             ADDI rdest, rdest, %pcrel_lo(TmpLabel)
+  if (isRVYCapMode())
+    return Error(IDLoc, "TLS pseudos are not supported in capability mode yet");
   MCRegister DestReg = Inst.getOperand(0).getReg();
   const MCExpr *Symbol = Inst.getOperand(1).getExpr();
   emitAuipcInstPair(DestReg, DestReg, Symbol, ELF::R_RISCV_TLS_GD_HI20,
-                    RISCV::ADDI, IDLoc, Out);
+                    getPtrAddiOpcode(), IDLoc, Out);
+  return false;
 }
 
 void RISCVAsmParser::emitLoadStoreSymbol(MCInst &Inst, unsigned Opcode,
