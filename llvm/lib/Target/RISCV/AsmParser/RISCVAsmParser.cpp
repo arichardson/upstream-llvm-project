@@ -3542,6 +3542,8 @@ void RISCVAsmParser::emitToStreamer(MCStreamer &S, const MCInst &Inst) {
     Res = RISCVRVC::compress(CInst, Inst, STI);
   if (Res)
     ++RISCVNumInstrsCompressed;
+  // Ensure that we don't emit instructions with missing predicates.
+  RISCV_MC::verifyInstructionPredicates(Inst.getOpcode(), STI.getFeatureBits());
   S.emitInstruction((Res ? CInst : Inst), STI);
 }
 
