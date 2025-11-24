@@ -230,10 +230,7 @@ def GPRMem : MemOperand<GPR>;
 // Note: For RVY, the encodings using x0/zero (a null capability) as the base
 // are reserved. Therfore, we use YGPRNoNull to reject them in the assembler
 // while allowing the encodings for RVI mode.
-def BasePtrRC : RegClassByHwMode<
-  [RV32I, RV64I, RV32Y, RV64Y],
-  [GPR, GPR, YGPRNoNull, YGPRNoNull]>;
-
+defm BasePtrRC : PtrRegClassByHwMode<GPR, YGPRNoNull>;
 def BasePtr : MemOperand<BasePtrRC>;
 
 
@@ -759,14 +756,14 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1,
 def LUI : RVInstU<OPC_LUI, (outs GPR:$rd), (ins uimm20_lui:$imm20),
                   "lui", "$rd, $imm20">, Sched<[WriteIALU]>;
 
-def AUIPC : RVInstU<OPC_AUIPC, (outs GPR:$rd), (ins uimm20_auipc:$imm20),
+def AUIPC : RVInstU<OPC_AUIPC, (outs PtrReg:$rd), (ins uimm20_auipc:$imm20),
                     "auipc", "$rd, $imm20">, Sched<[WriteIALU]>;
 
-def JAL : RVInstJ<OPC_JAL, (outs GPR:$rd), (ins simm21_lsb0_jal:$imm20),
+def JAL : RVInstJ<OPC_JAL, (outs PtrReg:$rd), (ins simm21_lsb0_jal:$imm20),
                   "jal", "$rd, $imm20">, Sched<[WriteJal]>;
 
-def JALR : RVInstI<0b000, OPC_JALR, (outs GPR:$rd),
-                   (ins GPR:$rs1, simm12_lo:$imm12),
+def JALR : RVInstI<0b000, OPC_JALR, (outs PtrReg:$rd),
+                   (ins PtrReg:$rs1, simm12_lo:$imm12),
                    "jalr", "$rd, ${imm12}(${rs1})">,
            Sched<[WriteJalr, ReadJalr]>;
 } // hasSideEffects = 0, mayLoad = 0, mayStore = 0
@@ -1102,25 +1099,26 @@ def : InstAlias<"bgtu $rs, $rt, $offset",
 def : InstAlias<"bleu $rs, $rt, $offset",
                 (BGEU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 
-def : InstAlias<"j $offset",   (JAL X0, simm21_lsb0_jal:$offset)>;
-def : InstAlias<"jal $offset", (JAL X1, simm21_lsb0_jal:$offset)>;
+def : InstAlias<"j $offset",   (JAL NullReg, simm21_lsb0_jal:$offset)>;
+def : InstAlias<"jal $offset", (JAL ReturnReg, simm21_lsb0_jal:$offset)>;
+
 
 // Non-zero offset aliases of "jalr" are the lowest weight, followed by the
 // two-register form, then the one-register forms and finally "ret".
-def : InstAlias<"jr $rs",                (JALR      X0, GPR:$rs, 0), 3>;
-def : InstAlias<"jr ${offset}(${rs})",   (JALR      X0, GPR:$rs, simm12_lo:$offset)>;
-def : InstAlias<"jalr $rs",              (JALR      X1, GPR:$rs, 0), 3>;
-def : InstAlias<"jalr ${offset}(${rs})", (JALR      X1, GPR:$rs, simm12_lo:$offset)>;
-def : InstAlias<"jalr $rd, $rs",         (JALR GPR:$rd, GPR:$rs, 0), 2>;
-def : InstAlias<"ret",                   (JALR      X0,      X1, 0), 4>;
+def : InstAlias<"jr $rs",                (JALR      NullReg, PtrReg:$rs, 0), 3>;
+def : InstAlias<"jr ${offset}(${rs})",   (JALR      NullReg, PtrReg:$rs, simm12_lo:$offset)>;
+def : InstAlias<"jalr $rs",              (JALR    ReturnReg, PtrReg:$rs, 0), 3>;
+def : InstAlias<"jalr ${offset}(${rs})", (JALR    ReturnReg, PtrReg:$rs, simm12_lo:$offset)>;
+def : InstAlias<"jalr $rd, $rs",         (JALR   PtrReg:$rd, PtrReg:$rs, 0), 2>;
+def : InstAlias<"ret",                   (JALR      NullReg, ReturnReg,  0), 4>;
 
 // Non-canonical forms for jump targets also accepted by the assembler.
-def : InstAlias<"jr $rs, $offset",        (JALR      X0, GPR:$rs, simm12_lo:$offset), 0>;
-def : InstAlias<"jalr $rs, $offset",      (JALR      X1, GPR:$rs, simm12_lo:$offset), 0>;
-def : InstAlias<"jalr $rd, $rs, $offset", (JALR GPR:$rd, GPR:$rs, simm12_lo:$offset), 0>;
-def : InstAlias<"jr (${rs})",             (JALR      X0, GPR:$rs, 0), 0>;
-def : InstAlias<"jalr (${rs})",           (JALR      X1, GPR:$rs, 0), 0>;
-def : InstAlias<"jalr $rd, (${rs})",      (JALR GPR:$rd, GPR:$rs, 0), 0>;
+def : InstAlias<"jr $rs, $offset",        (JALR      NullReg, PtrReg:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jalr $rs, $offset",      (JALR    ReturnReg, PtrReg:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jalr $rd, $rs, $offset", (JALR   PtrReg:$rd, PtrReg:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jr (${rs})",             (JALR      NullReg, PtrReg:$rs, 0), 0>;
+def : InstAlias<"jalr (${rs})",           (JALR    ReturnReg, PtrReg:$rs, 0), 0>;
+def : InstAlias<"jalr $rd, (${rs})",      (JALR   PtrReg:$rd, PtrReg:$rs, 0), 0>;
 
 def : InstAlias<"fence", (FENCE 0xF, 0xF)>; // 0xF == iorw
 
@@ -1239,7 +1237,7 @@ def : MnemonicAlias<"sbreak", "ebreak">;
 def : InstAlias<"zext.b $rd, $rs", (ANDI GPR:$rd, GPR:$rs, 0xFF)>;
 
 let Predicates = [HasStdExtZicfilp] in {
-def : InstAlias<"lpad $imm20", (AUIPC X0, uimm20:$imm20)>;
+def : InstAlias<"lpad $imm20", (AUIPC NullReg, uimm20:$imm20)>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1767,15 +1765,15 @@ def PseudoBR : Pseudo<(outs), (ins simm21_lsb0_jal:$imm20), [(br bb:$imm20)]>,
 
 let Predicates = [NoStdExtZicfilp],
     isBarrier = 1, isBranch = 1, isIndirectBranch = 1, isTerminator = 1 in
-def PseudoBRIND : Pseudo<(outs), (ins GPRJALR:$rs1, simm12_lo:$imm12), []>,
-                  PseudoInstExpansion<(JALR X0, GPR:$rs1, simm12_lo:$imm12)>;
+def PseudoBRIND : Pseudo<(outs), (ins PtrJALR:$rs1, simm12_lo:$imm12), []>,
+                  PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1, simm12_lo:$imm12)>;
 
 let Predicates = [HasStdExtZicfilp],
     isBarrier = 1, isBranch = 1, isIndirectBranch = 1, isTerminator = 1 in {
 def PseudoBRINDNonX7 : Pseudo<(outs), (ins GPRJALRNonX7:$rs1, simm12_lo:$imm12), []>,
-                       PseudoInstExpansion<(JALR X0, GPR:$rs1, simm12_lo:$imm12)>;
+                       PseudoInstExpansion<(JALR X0, PtrReg:$rs1, simm12_lo:$imm12)>;
 def PseudoBRINDX7 : Pseudo<(outs), (ins GPRX7:$rs1, simm12_lo:$imm12), []>,
-                    PseudoInstExpansion<(JALR X0, GPR:$rs1, simm12_lo:$imm12)>;
+                    PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1, simm12_lo:$imm12)>;
 }
 
 // For Zicfilp, need to avoid using X7/T2 for indirect branches which need
@@ -1791,9 +1789,9 @@ def : Pat<(riscv_sw_guarded_brind (add GPRX7:$rs1, simm12_lo:$imm12)),
 }
 
 let Predicates = [NoStdExtZicfilp] in {
-def : Pat<(brind GPRJALR:$rs1), (PseudoBRIND GPRJALR:$rs1, 0)>;
-def : Pat<(brind (add GPRJALR:$rs1, simm12_lo:$imm12)),
-          (PseudoBRIND GPRJALR:$rs1, simm12_lo:$imm12)>;
+def : Pat<(brind PtrJALR:$rs1), (PseudoBRIND PtrJALR:$rs1, 0)>;
+def : Pat<(brind (add PtrJALR:$rs1, simm12_lo:$imm12)),
+          (PseudoBRIND PtrJALR:$rs1, simm12_lo:$imm12)>;
 }
 
 // PseudoCALLReg is a generic pseudo instruction for calls which will eventually
@@ -1828,8 +1826,8 @@ def : Pat<(riscv_mnret_glue), (MNRET)>;
 
 let isCall = 1, Defs = [X1] in {
 let Predicates = [NoStdExtZicfilp] in
-def PseudoCALLIndirect : Pseudo<(outs), (ins GPRJALR:$rs1),
-                                [(riscv_call GPRJALR:$rs1)]>,
+def PseudoCALLIndirect : Pseudo<(outs), (ins PtrJALR:$rs1),
+                                [(riscv_call PtrJALR:$rs1)]>,
                          PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
 let Predicates = [HasStdExtZicfilp] in {
 def PseudoCALLIndirectNonX7 : Pseudo<(outs), (ins GPRJALRNonX7:$rs1),
@@ -2288,15 +2286,15 @@ def : Pat<(debugtrap), (EBREAK)>;
 let Predicates = [IsRV64], Uses = [X5],
     Defs = [X1, X6, X7, X28, X29, X30, X31], Size = 8 in
 def HWASAN_CHECK_MEMACCESS_SHORTGRANULES
-  : Pseudo<(outs), (ins GPRJALR:$ptr, i32imm:$accessinfo),
-           [(int_hwasan_check_memaccess_shortgranules (i64 X5), GPRJALR:$ptr,
+  : Pseudo<(outs), (ins PtrJALR:$ptr, i32imm:$accessinfo),
+           [(int_hwasan_check_memaccess_shortgranules (i64 X5), PtrJALR:$ptr,
                                                       (i32 timm:$accessinfo))]>;
 
 // This gets lowered into a 20-byte instruction sequence (at most)
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0,
     Defs = [ X6, X7, X28, X29, X30, X31 ], Size = 20 in {
 def KCFI_CHECK
-  : Pseudo<(outs), (ins GPRJALR:$ptr, i32imm:$type), []>, Sched<[]>;
+  : Pseudo<(outs), (ins PtrJALR:$ptr, i32imm:$type), []>, Sched<[]>;
 }
 
 /// Simple optimization
