@@ -458,7 +458,7 @@ def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
 }
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-def C_JR : RVInst16CR<0b1000, OPC_C2, (outs), (ins GPRNoX0:$rs1),
+def C_JR : RVInst16CR<0b1000, OPC_C2, (outs), (ins PtrNoX0:$rs1),
                       "c.jr", "$rs1">, Sched<[WriteJalr, ReadJalr]> {
   let isBarrier = 1;
   let isTerminator = 1;
@@ -476,7 +476,7 @@ def C_EBREAK : RVInst16CR<0b1001, OPC_C2, (outs), (ins), "c.ebreak", "">, Sched<
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0,
     isCall=1, Defs=[X1], rs2 = 0 in
-def C_JALR : RVInst16CR<0b1001, OPC_C2, (outs), (ins GPRNoX0:$rs1),
+def C_JALR : RVInst16CR<0b1001, OPC_C2, (outs), (ins PtrNoX0:$rs1),
                         "c.jalr", "$rs1">, Sched<[WriteJalr, ReadJalr]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
@@ -780,7 +780,7 @@ def : CompressPat<(ADDI GPRNoX0:$rs1, GPRNoX0:$rs1, simm6nonzero:$imm),
                   (C_ADDI GPRNoX0:$rs1, simm6nonzero:$imm)>;
 
 let append Predicates = [IsRV32] in {
-def : CompressPat<(JAL X1, bare_simm12_lsb0:$offset),
+def : CompressPat<(JAL ReturnReg, bare_simm12_lsb0:$offset),
                   (C_JAL bare_simm12_lsb0:$offset)>;
 } // append Predicates = [IsRV32]
 
@@ -832,7 +832,7 @@ def : CompressPat<(ADDW GPRC:$rs1, GPRC:$rs2, GPRC:$rs1),
                    (C_ADDW GPRC:$rs1, GPRC:$rs2)>;
 } // append Predicates = [IsRV64]
 
-def : CompressPat<(JAL X0, bare_simm12_lsb0:$offset),
+def : CompressPat<(JAL NullReg, bare_simm12_lsb0:$offset),
                   (C_J bare_simm12_lsb0:$offset)>;
 def : CompressPat<(BEQ GPRC:$rs1, X0, bare_simm9_lsb0:$imm),
                   (C_BEQZ GPRC:$rs1, bare_simm9_lsb0:$imm)>;
@@ -863,8 +863,8 @@ def : CompressPat<(LD GPRNoX0:$rd, SPMem:$rs1, uimm9_lsb000:$imm),
                   (C_LDSP GPRNoX0:$rd, SPMem:$rs1, uimm9_lsb000:$imm)>;
 } // append Predicates = [IsRV64]
 
-def : CompressPat<(JALR X0, GPRNoX0:$rs1, 0),
-                  (C_JR GPRNoX0:$rs1)>;
+def : CompressPat<(JALR NullReg, PtrNoX0:$rs1, 0),
+                  (C_JR PtrNoX0:$rs1)>;
 let isCompressOnly = true in {
 def : CompressPat<(ADD GPRNoX0:$rs1, X0, GPRNoX0:$rs2),
                   (C_MV GPRNoX0:$rs1, GPRNoX0:$rs2)>;
@@ -875,8 +875,8 @@ def : CompressPat<(ADDI GPRNoX0:$rs1, GPRNoX0:$rs2, 0),
                   (C_MV GPRNoX0:$rs1, GPRNoX0:$rs2)>;
 def : CompressPat<(EBREAK), (C_EBREAK)>;
 def : CompressPat<(UNIMP), (C_UNIMP)>;
-def : CompressPat<(JALR X1, GPRNoX0:$rs1, 0),
-                  (C_JALR GPRNoX0:$rs1)>;
+def : CompressPat<(JALR ReturnReg, PtrNoX0:$rs1, 0),
+                  (C_JALR PtrNoX0:$rs1)>;
 def : CompressPat<(ADD GPRNoX0:$rs1, GPRNoX0:$rs1, GPRNoX0:$rs2),
                   (C_ADD GPRNoX0:$rs1, GPRNoX0:$rs2)>;
 let isCompressOnly = true in

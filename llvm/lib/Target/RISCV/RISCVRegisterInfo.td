@@ -339,9 +339,7 @@ def YGPR : YGPRRegisterClass<(add (sequence "X%u_Y", 10, 17),
                                   (sequence "X%u_Y", 28, 31),
                                   (sequence "X%u_Y", 8, 9),
                                   (sequence "X%u_Y", 18, 27),
-                                  (sequence "X%u_Y", 0, 4))> {
-  let DecoderMethod = "DecodeSimpleRegisterClass<RISCV::X0_Y, 32, /*RVELimit=*/16>";
-}
+                                  (sequence "X%u_Y", 0, 4))>;
 
 // Note: We have to use a multiclass here instead of inheriting from
 // RegClassByHwMode since tablegen does not allow subclasses.
@@ -375,6 +373,7 @@ def YGPRNoX0 : YGPRRegisterClass<(sub YGPR, X0_Y)> {
   let DiagnosticType = "InvalidRegClassYGPRNoX0";
   let DiagnosticString = GPRNoX0.DiagnosticString;
 }
+defm PtrNoX0 : PtrRegClassByHwMode<GPRNoX0, YGPRNoX0>;
 
 def GPRNoX2 : GPRRegisterClass<(sub GPR, X2)> {
   let DiagnosticType = "InvalidRegClassGPRNoX2";
@@ -387,14 +386,20 @@ def GPRNoX0X2 : GPRRegisterClass<(sub GPR, X0, X2)> {
 }
 
 def GPRX7 : GPRRegisterClass<(add X7)>;
+def YGPRX7 : GPRRegisterClass<(add X7_Y)>;
+defm PtrX7 : PtrRegClassByHwMode<GPRX7, YGPRX7>;
 
 // Don't use X1 or X5 for JALR since that is a hint to pop the return address
 // stack on some microarchitectures. Also remove the reserved registers X0, X2,
 // X3, and X4 as it reduces the number of register classes that get synthesized
 // by tablegen.
 def GPRJALR : GPRRegisterClass<(sub GPR, (sequence "X%u", 0, 5))>;
+def YGPRJALR : GPRRegisterClass<(sub YGPR, (sequence "X%u_Y", 0, 5))>;
+defm PtrJALR : PtrRegClassByHwMode<GPRJALR, YGPRJALR>;
 
 def GPRJALRNonX7 : GPRRegisterClass<(sub GPRJALR, X7)>;
+def YGPRJALRNonX7 : GPRRegisterClass<(sub YGPRJALR, X7_Y)>;
+defm PtrJALRNonX7 : PtrRegClassByHwMode<GPRJALRNonX7, YGPRJALRNonX7>;
 
 def GPRC : GPRRegisterClass<(add (sequence "X%u", 10, 15),
                                  (sequence "X%u", 8, 9))> {
@@ -421,7 +426,12 @@ defm BasePtrCRegClass : PtrRegClassByHwMode<GPRC, YGPRC>;
 def GPRTC : GPRRegisterClass<(add (sequence "X%u", 6, 7),
                                   (sequence "X%u", 10, 17),
                                   (sequence "X%u", 28, 31))>;
+def YGPRTC : GPRRegisterClass<(add (sequence "X%u_Y", 6, 7),
+                                   (sequence "X%u_Y", 10, 17),
+                                   (sequence "X%u_Y", 28, 31))>;
 def GPRTCNonX7 : GPRRegisterClass<(sub GPRTC, X7)>;
+def YGPRTCNonX7 : GPRRegisterClass<(sub YGPRTC, X7_Y)>;
+defm PtrTCNonX7 : PtrRegClassByHwMode<GPRTCNonX7, YGPRTCNonX7>;
 
 def GPRSP : GPRRegisterClass<(add X2)> {
   let DiagnosticType = "InvalidRegClassGPRSP";
@@ -448,6 +458,8 @@ def GPRNoX31 : GPRRegisterClass<(sub GPR, X31)> {
 
 def NullReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV32Y, RV64Y],
                                        [X0,    X0,    X0_Y,  X0_Y]>;
+def ReturnReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV32Y, RV64Y],
+                                         [X1,    X1,    X1_Y,  X1_Y]>;
 //===----------------------------------------------------------------------===//
 // Even-Odd GPR Pairs
 //===----------------------------------------------------------------------===//

@@ -1421,6 +1421,11 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
       CheckRC = &RISCVMCRegisterClasses[RVY ? RISCV::YGPRRegClassID
                                             : RISCV::GPRRegClassID];
       break;
+    case MCK_RegByHwMode_PtrNoX0:
+      Kind = RVY ? MCK_YGPRNoX0 : MCK_GPRNoX0;
+      CheckRC = &RISCVMCRegisterClasses[RVY ? RISCV::YGPRNoX0RegClassID
+                                            : RISCV::GPRNoX0RegClassID];
+      break;
       case MCK_RegByHwMode_BasePtrRegClass:
       // X0 is reserved in RVY mode, so this maps to MCK_YGPRNoX0.
       Kind = RVY ? MCK_YGPRNoX0 : MCK_GPR;
