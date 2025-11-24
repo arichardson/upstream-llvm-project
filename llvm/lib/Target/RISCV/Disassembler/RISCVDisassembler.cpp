@@ -199,6 +199,39 @@ static DecodeStatus DecodeGPRPairCRegisterClass(MCInst &Inst, uint32_t RegNo,
   return MCDisassembler::Success;
 }
 
+constexpr bool IsJalrReg(uint32_t RegNo) { return RegNo > 5; }
+
+constexpr auto DecodeGPRJALRRegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRRegisterClass, IsJalrReg>;
+constexpr auto DecodeYGPRJALRRegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRRegisterClass, IsJalrReg>;
+
+constexpr bool IsNonX7(uint32_t RegNo) { return RegNo != 7; }
+constexpr bool IsX7(uint32_t RegNo) { return RegNo == 7; }
+
+constexpr auto DecodeGPRJALRNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRJALRRegisterClass, IsNonX7>;
+constexpr auto DecodeYGPRJALRNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRJALRRegisterClass, IsNonX7>;
+constexpr auto DecodeGPRX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRRegisterClass, IsX7>;
+constexpr auto DecodeYGPRX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRRegisterClass, IsX7>;
+
+constexpr bool IsTailcallReg(uint32_t RegNo) {
+  return RegNo == 6 || RegNo == 7 || (RegNo >= 10 && RegNo <= 17) ||
+         (RegNo >= 28 && RegNo <= 31);
+}
+
+constexpr auto DecodeGPRTCRegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRRegisterClass, IsTailcallReg>;
+constexpr auto DecodeYGPRTCRegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRRegisterClass, IsTailcallReg>;
+constexpr auto DecodeGPRTCNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRTCRegisterClass, IsNonX7>;
+constexpr auto DecodeYGPRTCNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRTCRegisterClass, IsNonX7>;
+
 static DecodeStatus DecodeSR07RegisterClass(MCInst &Inst, uint32_t RegNo,
                                             uint64_t Address,
                                             const void *Decoder) {

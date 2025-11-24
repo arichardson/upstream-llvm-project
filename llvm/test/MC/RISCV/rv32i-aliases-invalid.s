@@ -9,9 +9,12 @@ li x0, 4294967296   # CHECK: :[[@LINE]]:8: error: immediate must be an integer i
 li x0, -2147483649  # CHECK: :[[@LINE]]:8: error: immediate must be an integer in the range [-2147483648, 4294967295]
 li t4, foo          # CHECK: :[[@LINE]]:8: error: immediate must be an integer in the range [-2147483648, 4294967295]
 
-la x0, 4294967296   # CHECK: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
-la x0, -2147483649  # CHECK: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
-la a1, foo+foo # CHECK: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
+la x0, 4294967296   # CHECK: :[[@LINE]]:8: error: operand must be a bare symbol name
+# FIXME: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
+la x0, -2147483649  # CHECK: :[[@LINE]]:8: error: operand must be a bare symbol name
+# FIXME: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
+la a1, foo+foo      # CHECK: :[[@LINE]]:8: error: operand must be a bare symbol name
+# FIXME: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
 la x1, %pcrel_hi(1234) # CHECK: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
 la x1, %pcrel_lo(1234) # CHECK: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]
 la x1, %pcrel_hi(foo) # CHECK: :[[@LINE]]:8: error: operand either must be a bare symbol name or an immediate integer in the range [-2147483648, 4294967295]

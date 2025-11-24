@@ -1415,6 +1415,8 @@ static MatchClassKind remapRegClassByHwMode(MatchClassKind Kind, bool Purecap) {
   switch (Kind) {
   case MCK_RegByHwMode_PtrReg:
     return Purecap ? MCK_YGPR : MCK_GPR;
+  case MCK_RegByHwMode_PtrNoX0:
+    return Purecap ? MCK_YGPRNoX0 : MCK_GPRNoX0;
   case MCK_RegByHwMode_BasePtrRegClass:
     return Purecap ? MCK_YGPRNoX0 : MCK_GPR;
   case MCK_RegByHwMode_BasePtrCRegClass:
