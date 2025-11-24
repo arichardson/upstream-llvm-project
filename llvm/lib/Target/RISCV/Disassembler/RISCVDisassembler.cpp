@@ -229,6 +229,37 @@ static DecodeStatus DecodeGPRPairCRegisterClass(MCInst &Inst, uint32_t RegNo,
   return DecodeGPRPairRegisterClass(Inst, RegNo + 8, Address, Decoder);
 }
 
+constexpr bool IsJalrReg(uint32_t RegNo) { return RegNo > 5; }
+
+// DecoderEmitter generates Decode*RegClassByHwMode functions for all
+// RegClassByHwMode definitions (even if only used by CodeGenOnly pseudos),
+// which in turn call the per-class decoder functions below.
+constexpr auto DecodeGPRJALRRegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRRegisterClass, IsJalrReg>;
+constexpr auto DecodeYGPRJALRRegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRRegisterClass, IsJalrReg>;
+
+constexpr bool IsNonX7(uint32_t RegNo) { return RegNo != 7; }
+
+constexpr auto DecodeGPRJALRNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRJALRRegisterClass, IsNonX7>;
+constexpr auto DecodeYGPRJALRNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRJALRRegisterClass, IsNonX7>;
+
+constexpr bool IsTailcallReg(uint32_t RegNo) {
+  return RegNo == 6 || RegNo == 7 || (RegNo >= 10 && RegNo <= 17) ||
+         (RegNo >= 28 && RegNo <= 31);
+}
+
+constexpr auto DecodeGPRTCRegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRRegisterClass, IsTailcallReg>;
+constexpr auto DecodeYGPRTCRegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRRegisterClass, IsTailcallReg>;
+constexpr auto DecodeGPRTCNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeGPRTCRegisterClass, IsNonX7>;
+constexpr auto DecodeYGPRTCNonX7RegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRTCRegisterClass, IsNonX7>;
+
 static DecodeStatus DecodeGPRS07RegisterClass(MCInst &Inst, uint32_t RegNo,
                                               uint64_t Address,
                                               const MCDisassembler *Decoder) {

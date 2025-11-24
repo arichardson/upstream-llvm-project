@@ -856,11 +856,11 @@ def LUI : RVInstU<OPC_LUI, (outs GPR:$rd), (ins uimm20_lui:$imm20),
 def AUIPC : RVInstU<OPC_AUIPC, (outs PtrReg:$rd), (ins uimm20_auipc:$imm20),
                     "auipc", "$rd, $imm20">, Sched<[WriteIALU]>;
 
-def JAL : RVInstJ<OPC_JAL, (outs GPR:$rd), (ins simm21_lsb0_jal:$imm20),
+def JAL : RVInstJ<OPC_JAL, (outs PtrReg:$rd), (ins simm21_lsb0_jal:$imm20),
                   "jal", "$rd, $imm20">, Sched<[WriteJal]>;
 
-def JALR : RVInstI<0b000, OPC_JALR, (outs GPR:$rd),
-                   (ins GPR:$rs1, simm12_lo_optional:$imm12),
+def JALR : RVInstI<0b000, OPC_JALR, (outs PtrReg:$rd),
+                   (ins PtrReg:$rs1, simm12_lo_optional:$imm12),
                    "jalr", "$rd, ${imm12}(${rs1})">,
            Sched<[WriteJalr, ReadJalr]>;
 } // hasSideEffects = 0, mayLoad = 0, mayStore = 0
@@ -1199,23 +1199,24 @@ def : InstAlias<"bgtu $rs, $rt, $offset",
 def : InstAlias<"bleu $rs, $rt, $offset",
                 (BGEU GPR:$rt, GPR:$rs, bare_simm13_lsb0:$offset), 0>;
 
-def : InstAlias<"j $offset",   (JAL X0, simm21_lsb0_jal:$offset)>;
-def : InstAlias<"jal $offset", (JAL X1, simm21_lsb0_jal:$offset)>;
+def : InstAlias<"j $offset",   (JAL NullReg, simm21_lsb0_jal:$offset)>;
+def : InstAlias<"jal $offset", (JAL ReturnReg, simm21_lsb0_jal:$offset)>;
+
 
 // Non-zero offset aliases of "jalr" are the lowest weight, followed by the
 // two-register form, then the one-register forms and finally "ret". The
 // "(${rs})" offset-less forms are covered by simm12_lo_optional.
-def : InstAlias<"jr $rs",                (JALR      X0, GPR:$rs, 0), 3>;
-def : InstAlias<"jr ${offset}(${rs})",   (JALR      X0, GPR:$rs, simm12_lo_optional:$offset)>;
-def : InstAlias<"jalr $rs",              (JALR      X1, GPR:$rs, 0), 3>;
-def : InstAlias<"jalr ${offset}(${rs})", (JALR      X1, GPR:$rs, simm12_lo_optional:$offset)>;
-def : InstAlias<"jalr $rd, $rs",         (JALR GPR:$rd, GPR:$rs, 0), 2>;
-def : InstAlias<"ret",                   (JALR      X0,      X1, 0), 4>;
+def : InstAlias<"jr $rs",                (JALR      NullReg, PtrReg:$rs, 0), 3>;
+def : InstAlias<"jr ${offset}(${rs})",   (JALR      NullReg, PtrReg:$rs, simm12_lo_optional:$offset)>;
+def : InstAlias<"jalr $rs",              (JALR    ReturnReg, PtrReg:$rs, 0), 3>;
+def : InstAlias<"jalr ${offset}(${rs})", (JALR    ReturnReg, PtrReg:$rs, simm12_lo_optional:$offset)>;
+def : InstAlias<"jalr $rd, $rs",         (JALR   PtrReg:$rd, PtrReg:$rs, 0), 2>;
+def : InstAlias<"ret",                   (JALR      NullReg, ReturnReg,  0), 4>;
 
 // Non-canonical forms for jump targets also accepted by the assembler.
-def : InstAlias<"jr $rs, $offset",        (JALR      X0, GPR:$rs, simm12_lo:$offset), 0>;
-def : InstAlias<"jalr $rs, $offset",      (JALR      X1, GPR:$rs, simm12_lo:$offset), 0>;
-def : InstAlias<"jalr $rd, $rs, $offset", (JALR GPR:$rd, GPR:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jr $rs, $offset",        (JALR      NullReg, PtrReg:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jalr $rs, $offset",      (JALR    ReturnReg, PtrReg:$rs, simm12_lo:$offset), 0>;
+def : InstAlias<"jalr $rd, $rs, $offset", (JALR   PtrReg:$rd, PtrReg:$rs, simm12_lo:$offset), 0>;
 
 def : InstAlias<"fence", (FENCE 0xF, 0xF)>; // 0xF == iorw
 
@@ -1855,22 +1856,22 @@ let isBarrier = 1, isBranch = 1, isIndirectBranch = 1, isTerminator = 1 in {
 // in cf-protection-branch. The NonX7 constraint is applied unconditionally
 // to simplify the code at a negligible performance cost.
 def PseudoBRIND : Pseudo<(outs),
-                         (ins GPRJALRNonX7:$rs1, simm12_lo_optional:$imm12), []>,
-                  PseudoInstExpansion<(JALR X0, GPR:$rs1,
+                         (ins PtrJALRNonX7:$rs1, simm12_lo_optional:$imm12), []>,
+                  PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1,
                                        simm12_lo_optional:$imm12)>;
-def PseudoBRINDX7 : Pseudo<(outs), (ins GPRX7:$rs1, simm12_lo_optional:$imm12),
+def PseudoBRINDX7 : Pseudo<(outs), (ins PtrX7:$rs1, simm12_lo_optional:$imm12),
                            []>,
-                    PseudoInstExpansion<(JALR X0, GPR:$rs1,
+                    PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1,
                                          simm12_lo_optional:$imm12)>;
 }
 
-def : Pat<(riscv_sw_guarded_brind GPRX7:$rs1), (PseudoBRINDX7 GPRX7:$rs1, 0)>;
-def : Pat<(riscv_sw_guarded_brind (add GPRX7:$rs1, simm12_lo:$imm12)),
-          (PseudoBRINDX7 GPRX7:$rs1, simm12_lo:$imm12)>;
+def : Pat<(riscv_sw_guarded_brind PtrX7:$rs1), (PseudoBRINDX7 PtrX7:$rs1, 0)>;
+def : Pat<(riscv_sw_guarded_brind (add PtrX7:$rs1, simm12_lo:$imm12)),
+          (PseudoBRINDX7 PtrX7:$rs1, simm12_lo:$imm12)>;
 
-def : Pat<(brind GPRJALRNonX7:$rs1), (PseudoBRIND GPRJALRNonX7:$rs1, 0)>;
-def : Pat<(brind (add GPRJALRNonX7:$rs1, simm12_lo:$imm12)),
-          (PseudoBRIND GPRJALRNonX7:$rs1, simm12_lo:$imm12)>;
+def : Pat<(brind PtrJALRNonX7:$rs1), (PseudoBRIND PtrJALRNonX7:$rs1, 0)>;
+def : Pat<(brind (add PtrJALRNonX7:$rs1, simm12_lo:$imm12)),
+          (PseudoBRIND PtrJALRNonX7:$rs1, simm12_lo:$imm12)>;
 
 // PseudoCALLReg is a generic pseudo instruction for calls which will eventually
 // expand to auipc and jalr while encoding, with any given register used as the
@@ -1879,7 +1880,7 @@ def : Pat<(brind (add GPRJALRNonX7:$rs1, simm12_lo:$imm12)),
 // Define isCodeGenOnly = 0 to support parsing assembly "call" instruction.
 let isCall = 1, isCodeGenOnly = 0, Size = 8, hasSideEffects = 0,
     mayStore = 0, mayLoad = 0 in
-def PseudoCALLReg : Pseudo<(outs GPR:$rd), (ins call_symbol:$func), [],
+def PseudoCALLReg : Pseudo<(outs PtrReg:$rd), (ins call_symbol:$func), [],
                            "call", "$rd, $func">,
                     Sched<[WriteIALU, WriteJalr, ReadJalr]>;
 
@@ -1917,7 +1918,7 @@ def PseudoCALLLpadAlign : Pseudo<(outs),
 let isCall = 1, Defs = [X1], Size = 8, hasSideEffects = 0, mayLoad = 0,
     mayStore = 0 in
 def PseudoCALLIndirectLpadAlign : Pseudo<(outs),
-                                         (ins GPRJALRNonX7:$rs1,
+                                         (ins PtrJALRNonX7:$rs1,
                                               uimm20_auipc:$lpad_label),
                                          []>,
                                   Sched<[WriteJalr, ReadJalr]>;
@@ -1931,17 +1932,17 @@ let isCall = 1, Defs = [X1] in {
 // Use GPRJALRNonX7 to avoid X7 which is reserved for landing pad labels
 // in cf-protection-branch. The NonX7 constraint is applied unconditionally
 // to simplify the code at a negligible performance cost.
-def PseudoCALLIndirect : Pseudo<(outs), (ins GPRJALRNonX7:$rs1),
-                                [(riscv_call GPRJALRNonX7:$rs1)]>,
-                         PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
-def PseudoCALLIndirectX7 : Pseudo<(outs), (ins GPRX7:$rs1),
-                                  [(riscv_sw_guarded_call GPRX7:$rs1)]>,
-                           PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
+def PseudoCALLIndirect : Pseudo<(outs), (ins PtrJALRNonX7:$rs1),
+                                [(riscv_call PtrJALRNonX7:$rs1)]>,
+                         PseudoInstExpansion<(JALR ReturnReg, PtrReg:$rs1, 0)>;
+def PseudoCALLIndirectX7 : Pseudo<(outs), (ins PtrX7:$rs1),
+                                  [(riscv_sw_guarded_call PtrX7:$rs1)]>,
+                           PseudoInstExpansion<(JALR ReturnReg, PtrReg:$rs1, 0)>;
 }
 
 let isBarrier = 1, isReturn = 1, isTerminator = 1 in
 def PseudoRET : Pseudo<(outs), (ins), [(riscv_ret_glue)]>,
-                PseudoInstExpansion<(JALR X0, X1, 0)>;
+                PseudoInstExpansion<(JALR NullReg, ReturnReg, 0)>;
 
 // PseudoTAIL is a pseudo instruction similar to PseudoCALL and will eventually
 // expand to auipc and jalr while encoding.
@@ -1958,7 +1959,7 @@ def PseudoTAIL : Pseudo<(outs), (ins call_symbol:$dst), [],
 // PseudoTAILReg is the asm form of "tail address, register" where the
 // register specifies the temp for AUIPC+JALR expansion.
 let isCodeGenOnly = 0, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-def PseudoTAILReg : Pseudo<(outs), (ins tail_call_symbol:$dst, GPR:$rs), [],
+def PseudoTAILReg : Pseudo<(outs), (ins tail_call_symbol:$dst, PtrReg:$rs), [],
                             "tail", "$dst, $rs">,
                     Sched<[WriteIALU, WriteJalr, ReadJalr]>;
 // PseudoTAILX7 is CodeGenOnly; used when cf-protection-branch is active.
@@ -1968,15 +1969,15 @@ def PseudoTAILX7 : Pseudo<(outs), (ins call_symbol:$dst), []>,
 }
 
 let isCall = 1, isTerminator = 1, isReturn = 1, isBarrier = 1, Uses = [X2] in {
-// Use GPRTCNonX7 to avoid X7 which is reserved for landing pad labels
+// Use PtrTCNonX7 to avoid X7 which is reserved for landing pad labels
 // in cf-protection-branch. The NonX7 constraint is applied unconditionally
 // to simplify the code at a negligible performance cost.
-def PseudoTAILIndirect : Pseudo<(outs), (ins GPRTCNonX7:$rs1),
-                                [(riscv_tail GPRTCNonX7:$rs1)]>,
-                         PseudoInstExpansion<(JALR X0, GPR:$rs1, 0)>;
-def PseudoTAILIndirectX7 : Pseudo<(outs), (ins GPRX7:$rs1),
-                                  [(riscv_sw_guarded_tail GPRX7:$rs1)]>,
-                           PseudoInstExpansion<(JALR X0, GPR:$rs1, 0)>;
+def PseudoTAILIndirect : Pseudo<(outs), (ins PtrTCNonX7:$rs1),
+                                [(riscv_tail PtrTCNonX7:$rs1)]>,
+                         PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1, 0)>;
+def PseudoTAILIndirectX7 : Pseudo<(outs), (ins PtrX7:$rs1),
+                                  [(riscv_sw_guarded_tail PtrX7:$rs1)]>,
+                           PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1, 0)>;
 }
 
 def : Pat<(riscv_tail (iPTR tglobaladdr:$dst)),
@@ -1990,7 +1991,7 @@ def : Pat<(riscv_sw_guarded_tail (iPTR texternalsym:$dst)),
 
 let isCall = 0, isBarrier = 1, isBranch = 1, isTerminator = 1, Size = 8,
     isCodeGenOnly = 0, hasSideEffects = 0, mayStore = 0, mayLoad = 0 in
-def PseudoJump : Pseudo<(outs GPR:$rd), (ins pseudo_jump_symbol:$target), [],
+def PseudoJump : Pseudo<(outs PtrReg:$rd), (ins pseudo_jump_symbol:$target), [],
                         "jump", "$target, $rd">,
                  Sched<[WriteIALU, WriteJalr, ReadJalr]>;
 
@@ -2085,8 +2086,8 @@ def tlsdesc_call_symbol : Operand<XLenVT> {
 // as a hint to the linker.
 let isCall = 1, isCodeGenOnly = 0, Size = 8, hasSideEffects = 0,
     mayStore = 0, mayLoad = 0 in
-def PseudoTLSDESCCall : Pseudo<(outs GPR:$rd),
-                         (ins GPR:$rs1, simm12_lo:$imm12, tlsdesc_call_symbol:$src), [],
+def PseudoTLSDESCCall : Pseudo<(outs PtrReg:$rd),
+                         (ins PtrReg:$rs1, simm12_lo:$imm12, tlsdesc_call_symbol:$src), [],
                          "jalr", "$rd, ${imm12}(${rs1}), $src">,
                          Sched<[WriteJalr, ReadJalr]> {
   let Defs = !listconcat([X10], TLSDESCVClobbers);
@@ -2423,15 +2424,15 @@ def : Pat<(debugtrap), (EBREAK)>;
 let Predicates = [IsRV64], Uses = [X5],
     Defs = [X1, X6, X7, X28, X29, X30, X31], Size = 8 in
 def HWASAN_CHECK_MEMACCESS_SHORTGRANULES
-  : Pseudo<(outs), (ins GPRJALR:$ptr, i32imm:$accessinfo),
-           [(int_hwasan_check_memaccess_shortgranules (i64 X5), GPRJALR:$ptr,
+  : Pseudo<(outs), (ins PtrJALR:$ptr, i32imm:$accessinfo),
+           [(int_hwasan_check_memaccess_shortgranules (i64 X5), PtrJALR:$ptr,
                                                       (i32 timm:$accessinfo))]>;
 
 // This gets lowered into a 20-byte instruction sequence (at most)
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0,
     Defs = [ X6, X7, X28, X29, X30, X31 ], Size = 20 in {
 def KCFI_CHECK
-  : Pseudo<(outs), (ins GPRJALR:$ptr, i32imm:$type), []>, Sched<[]>;
+  : Pseudo<(outs), (ins PtrJALR:$ptr, i32imm:$type), []>, Sched<[]>;
 }
 
 /// Simple optimization

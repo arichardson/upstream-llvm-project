@@ -297,7 +297,7 @@ public:
       return false;
     case RISCV::JAL:
     case RISCV::JALR:
-      return Inst.getOperand(0).getReg() == RISCV::X0;
+      return isZeroReg(Inst.getOperand(0).getReg());
     }
   }
 
@@ -310,7 +310,7 @@ public:
       return false;
     case RISCV::JAL:
     case RISCV::JALR:
-      return Inst.getOperand(0).getReg() != RISCV::X0;
+      return !isZeroReg(Inst.getOperand(0).getReg());
     }
   }
 
@@ -322,7 +322,7 @@ public:
     default:
       return false;
     case RISCV::JALR:
-      return Inst.getOperand(0).getReg() == RISCV::X0 &&
+      return isZeroReg(Inst.getOperand(0).getReg()) &&
              maybeReturnAddress(Inst.getOperand(1).getReg());
     case RISCV::C_JR:
       return maybeReturnAddress(Inst.getOperand(0).getReg());
@@ -351,7 +351,7 @@ public:
     default:
       return false;
     case RISCV::JALR:
-      return Inst.getOperand(0).getReg() == RISCV::X0 &&
+      return isZeroReg(Inst.getOperand(0).getReg()) &&
              !maybeReturnAddress(Inst.getOperand(1).getReg());
     case RISCV::C_JR:
       return !maybeReturnAddress(Inst.getOperand(0).getReg());
@@ -402,7 +402,8 @@ public:
 private:
   static bool maybeReturnAddress(MCRegister Reg) {
     // X1 is used for normal returns, X5 for returns from outlined functions.
-    return Reg == RISCV::X1 || Reg == RISCV::X5;
+    return Reg == RISCV::X1 || Reg == RISCV::X5 || Reg == RISCV::X1_Y ||
+           Reg == RISCV::X5_Y;
   }
 
   static bool isBranchImpl(const MCInst &Inst) {
@@ -410,9 +411,9 @@ private:
     default:
       return false;
     case RISCV::JAL:
-      return Inst.getOperand(0).getReg() == RISCV::X0;
+      return isZeroReg(Inst.getOperand(0).getReg());
     case RISCV::JALR:
-      return Inst.getOperand(0).getReg() == RISCV::X0 &&
+      return isZeroReg(Inst.getOperand(0).getReg()) &&
              !maybeReturnAddress(Inst.getOperand(1).getReg());
     case RISCV::C_JR:
       return !maybeReturnAddress(Inst.getOperand(0).getReg());
