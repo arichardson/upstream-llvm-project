@@ -396,15 +396,25 @@ def GPRNoX0X2 : GPRRegisterClass<(sub GPR, X0, X2)> {
   let DiagnosticString = "register must be a GPR excluding zero (x0) and sp (x2)";
 }
 
-def GPRX7 : GPRRegisterClass<(add X7)>;
+def GPRX7 : GPRRegisterClass<(add X7)> {
+  let DecoderMethod = "DecodeSingleRegister<RISCV::X7, 7>";
+}
+def YGPRX7 : YGPRRegisterClass<(add X7_Y)> {
+  let DecoderMethod = "DecodeSingleRegister<RISCV::X7_Y, 7>";
+}
+defm PtrX7 : PtrRegClassByHwMode<GPRX7, YGPRX7>;
 
 // Don't use X1 or X5 for JALR since that is a hint to pop the return address
 // stack on some microarchitectures. Also remove the reserved registers X0, X2,
 // X3, and X4 as it reduces the number of register classes that get synthesized
 // by tablegen.
 def GPRJALR : GPRRegisterClass<(sub GPR, (sequence "X%u", 0, 5))>;
+def YGPRJALR : YGPRRegisterClass<(sub YGPR, (sequence "X%u_Y", 0, 5))>;
+defm PtrJALR : PtrRegClassByHwMode<GPRJALR, YGPRJALR>;
 
 def GPRJALRNonX7 : GPRRegisterClass<(sub GPRJALR, X7)>;
+def YGPRJALRNonX7 : YGPRRegisterClass<(sub YGPRJALR, X7_Y)>;
+defm PtrJALRNonX7 : PtrRegClassByHwMode<GPRJALRNonX7, YGPRJALRNonX7>;
 
 def GPRC : GPRRegisterClass<(add (sequence "X%u", 10, 15),
                                  (sequence "X%u", 8, 9))> {
@@ -431,7 +441,12 @@ defm BasePtrCRegClass : PtrRegClassByHwMode<GPRC, YGPRC>;
 def GPRTC : GPRRegisterClass<(add (sequence "X%u", 6, 7),
                                   (sequence "X%u", 10, 17),
                                   (sequence "X%u", 28, 31))>;
+def YGPRTC : YGPRRegisterClass<(add (sequence "X%u_Y", 6, 7),
+                                   (sequence "X%u_Y", 10, 17),
+                                   (sequence "X%u_Y", 28, 31))>;
 def GPRTCNonX7 : GPRRegisterClass<(sub GPRTC, X7)>;
+def YGPRTCNonX7 : YGPRRegisterClass<(sub YGPRTC, X7_Y)>;
+defm PtrTCNonX7 : PtrRegClassByHwMode<GPRTCNonX7, YGPRTCNonX7>;
 
 def SP_X : GPRRegisterClass<(add X2)> {
   let DecoderMethod = "DecodeSingleRegister<RISCV::X2, 2>";
@@ -467,6 +482,8 @@ def GPRNoX31 : GPRRegisterClass<(sub GPR, X31)> {
 
 def NullReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV32Y, RV64Y],
                                        [X0,    X0,    X0_Y,  X0_Y]>;
+def ReturnReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV32Y, RV64Y],
+                                         [X1,    X1,    X1_Y,  X1_Y]>;
 //===----------------------------------------------------------------------===//
 // Even-Odd GPR Pairs
 //===----------------------------------------------------------------------===//

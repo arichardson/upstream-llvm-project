@@ -23,7 +23,7 @@ namespace {
 class InstrAnalysisTest : public testing::TestWithParam<const char *> {
 protected:
   std::unique_ptr<const MCInstrInfo> Info;
-  std::unique_ptr<const MCInstrAnalysis> Analysis;
+  std::unique_ptr<MCInstrAnalysis> Analysis;
 
   static void SetUpTestSuite() {
     LLVMInitializeRISCVTargetInfo();
@@ -36,7 +36,7 @@ protected:
     Triple TT(Triple::normalize(GetParam()));
     const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
     Info = std::unique_ptr<const MCInstrInfo>(TheTarget->createMCInstrInfo());
-    Analysis = std::unique_ptr<const MCInstrAnalysis>(
+    Analysis = std::unique_ptr<MCInstrAnalysis>(
         TheTarget->createMCInstrAnalysis(Info.get()));
   }
 };
@@ -77,9 +77,13 @@ TEST_P(InstrAnalysisTest, IsTerminator) {
   EXPECT_TRUE(Analysis->isTerminator(beq()));
   EXPECT_TRUE(Analysis->isTerminator(cbeqz()));
   EXPECT_TRUE(Analysis->isTerminator(jal(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isTerminator(jal(RISCV::X0_Y)));
   EXPECT_FALSE(Analysis->isTerminator(jal(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isTerminator(jal(RISCV::X5_Y)));
   EXPECT_TRUE(Analysis->isTerminator(jalr(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isTerminator(jalr(RISCV::X0_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isTerminator(jalr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isTerminator(jalr(RISCV::X5_Y, RISCV::X10_Y)));
   EXPECT_TRUE(Analysis->isTerminator(cj()));
   EXPECT_FALSE(Analysis->isTerminator(cjal()));
 }
@@ -88,86 +92,164 @@ TEST_P(InstrAnalysisTest, IsCall) {
   EXPECT_FALSE(Analysis->isCall(beq()));
   EXPECT_FALSE(Analysis->isCall(cbeqz()));
   EXPECT_FALSE(Analysis->isCall(jal(RISCV::X0)));
+  EXPECT_FALSE(Analysis->isCall(jal(RISCV::X0_Y)));
   EXPECT_TRUE(Analysis->isCall(jal(RISCV::X1)));
+  EXPECT_TRUE(Analysis->isCall(jal(RISCV::X1_Y)));
   EXPECT_TRUE(Analysis->isCall(jalr(RISCV::X1, RISCV::X1)));
+  EXPECT_TRUE(Analysis->isCall(jalr(RISCV::X1_Y, RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isCall(jalr(RISCV::X0, RISCV::X5)));
+  EXPECT_FALSE(Analysis->isCall(jalr(RISCV::X0_Y, RISCV::X5_Y)));
   EXPECT_FALSE(Analysis->isCall(cj()));
   EXPECT_FALSE(Analysis->isCall(cjr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isCall(cjr(RISCV::X5_Y)));
   EXPECT_TRUE(Analysis->isCall(cjal()));
   EXPECT_TRUE(Analysis->isCall(cjalr(RISCV::X5)));
+  EXPECT_TRUE(Analysis->isCall(cjalr(RISCV::X5_Y)));
 }
 
 TEST_P(InstrAnalysisTest, IsReturn) {
   EXPECT_FALSE(Analysis->isReturn(beq()));
   EXPECT_FALSE(Analysis->isReturn(cbeqz()));
   EXPECT_FALSE(Analysis->isReturn(jal(RISCV::X0)));
+  EXPECT_FALSE(Analysis->isReturn(jal(RISCV::X0_Y)));
   EXPECT_TRUE(Analysis->isReturn(jalr(RISCV::X0, RISCV::X1)));
+  EXPECT_TRUE(Analysis->isReturn(jalr(RISCV::X0_Y, RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isReturn(jalr(RISCV::X1, RISCV::X1)));
+  EXPECT_FALSE(Analysis->isReturn(jalr(RISCV::X1_Y, RISCV::X1_Y)));
   EXPECT_TRUE(Analysis->isReturn(jalr(RISCV::X0, RISCV::X5)));
+  EXPECT_TRUE(Analysis->isReturn(jalr(RISCV::X0_Y, RISCV::X5_Y)));
   EXPECT_FALSE(Analysis->isReturn(cj()));
   EXPECT_TRUE(Analysis->isReturn(cjr(RISCV::X1)));
+  EXPECT_TRUE(Analysis->isReturn(cjr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isReturn(cjr(RISCV::X2)));
+  EXPECT_FALSE(Analysis->isReturn(cjr(RISCV::X2_Y)));
   EXPECT_TRUE(Analysis->isReturn(cjr(RISCV::X5)));
+  EXPECT_TRUE(Analysis->isReturn(cjr(RISCV::X5_Y)));
   EXPECT_FALSE(Analysis->isReturn(cjal()));
   EXPECT_FALSE(Analysis->isReturn(cjalr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isReturn(cjalr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isReturn(cjalr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isReturn(cjalr(RISCV::X5_Y)));
 }
 
 TEST_P(InstrAnalysisTest, IsBranch) {
   EXPECT_TRUE(Analysis->isBranch(beq()));
   EXPECT_TRUE(Analysis->isBranch(cbeqz()));
   EXPECT_TRUE(Analysis->isBranch(jal(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isBranch(jal(RISCV::X0_Y)));
   EXPECT_FALSE(Analysis->isBranch(jal(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isBranch(jal(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isBranch(jal(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isBranch(jal(RISCV::X5_Y)));
   EXPECT_TRUE(Analysis->isBranch(jalr(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isBranch(jalr(RISCV::X0_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X1_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X5_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X0, RISCV::X1)));
+  EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X0_Y, RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X0, RISCV::X5)));
+  EXPECT_FALSE(Analysis->isBranch(jalr(RISCV::X0_Y, RISCV::X5_Y)));
   EXPECT_TRUE(Analysis->isBranch(cj()));
   EXPECT_TRUE(Analysis->isBranch(cjr(RISCV::X2)));
+  EXPECT_TRUE(Analysis->isBranch(cjr(RISCV::X2_Y)));
   EXPECT_FALSE(Analysis->isBranch(cjr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isBranch(cjr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isBranch(cjr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isBranch(cjr(RISCV::X5_Y)));
   EXPECT_FALSE(Analysis->isBranch(cjal()));
   EXPECT_FALSE(Analysis->isBranch(cjalr(RISCV::X6)));
+  EXPECT_FALSE(Analysis->isBranch(cjalr(RISCV::X6_Y)));
   EXPECT_FALSE(Analysis->isBranch(cjalr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isBranch(cjalr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isBranch(cjalr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isBranch(cjalr(RISCV::X5_Y)));
 }
 
 TEST_P(InstrAnalysisTest, IsUnconditionalBranch) {
   EXPECT_FALSE(Analysis->isUnconditionalBranch(beq()));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cbeqz()));
   EXPECT_TRUE(Analysis->isUnconditionalBranch(jal(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isUnconditionalBranch(jal(RISCV::X0_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(jal(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(jal(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(jal(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(jal(RISCV::X5_Y)));
   EXPECT_TRUE(Analysis->isUnconditionalBranch(jalr(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isUnconditionalBranch(jalr(RISCV::X0_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(jalr(RISCV::X1)));
+  EXPECT_FALSE(
+      Analysis->isUnconditionalBranch(jalr(RISCV::X1_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(jalr(RISCV::X5)));
+  EXPECT_FALSE(
+      Analysis->isUnconditionalBranch(jalr(RISCV::X5_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(jalr(RISCV::X0, RISCV::X1)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(jalr(RISCV::X0_Y, RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(jalr(RISCV::X0, RISCV::X5)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(jalr(RISCV::X0_Y, RISCV::X5_Y)));
   EXPECT_TRUE(Analysis->isUnconditionalBranch(cj()));
   EXPECT_TRUE(Analysis->isUnconditionalBranch(cjr(RISCV::X2)));
+  EXPECT_TRUE(Analysis->isUnconditionalBranch(cjr(RISCV::X2_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cjr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(cjr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cjr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(cjr(RISCV::X5_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cjal()));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cjalr(RISCV::X6)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(cjalr(RISCV::X6_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cjalr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(cjalr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isUnconditionalBranch(cjalr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isUnconditionalBranch(cjalr(RISCV::X5_Y)));
 }
 
 TEST_P(InstrAnalysisTest, IsIndirectBranch) {
   EXPECT_FALSE(Analysis->isIndirectBranch(beq()));
   EXPECT_FALSE(Analysis->isIndirectBranch(cbeqz()));
   EXPECT_FALSE(Analysis->isIndirectBranch(jal(RISCV::X0)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(jal(RISCV::X0_Y)));
   EXPECT_FALSE(Analysis->isIndirectBranch(jal(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(jal(RISCV::X1_Y)));
   EXPECT_TRUE(Analysis->isIndirectBranch(jalr(RISCV::X0)));
+  EXPECT_TRUE(Analysis->isIndirectBranch(jalr(RISCV::X0_Y, RISCV::X10_Y)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(jalr(RISCV::X0, RISCV::X1)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(jalr(RISCV::X0_Y, RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isIndirectBranch(jalr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(jalr(RISCV::X1_Y, RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isIndirectBranch(cj()));
   EXPECT_TRUE(Analysis->isIndirectBranch(cjr(RISCV::X10)));
+  EXPECT_TRUE(Analysis->isIndirectBranch(cjr(RISCV::X10_Y)));
   EXPECT_FALSE(Analysis->isIndirectBranch(cjr(RISCV::X1)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(cjr(RISCV::X1_Y)));
   EXPECT_FALSE(Analysis->isIndirectBranch(cjr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(cjr(RISCV::X5_Y)));
   EXPECT_FALSE(Analysis->isIndirectBranch(cjal()));
   EXPECT_FALSE(Analysis->isIndirectBranch(cjalr(RISCV::X5)));
+  EXPECT_FALSE(Analysis->isIndirectBranch(cjalr(RISCV::X5_Y)));
+}
+
+TEST_P(InstrAnalysisTest, EvaluateBranchYGPR) {
+  uint64_t Target = 0;
+  MCInst Auipc = MCInstBuilder(RISCV::AUIPC).addReg(RISCV::X10_Y).addImm(1);
+  Analysis->updateState(Auipc, nullptr, 0x1000);
+  EXPECT_TRUE(Analysis->evaluateBranch(jalr(RISCV::X0_Y, RISCV::X10_Y), 0x1004,
+                                       4, Target));
+  EXPECT_EQ(Target, 0x2010u);
+
+  // Writing a YGPR register should invalidate its tracked AUIPC state.
+  Analysis->updateState(Auipc, nullptr, 0x1000);
+  MCInst Ymv =
+      MCInstBuilder(RISCV::YMV).addReg(RISCV::X10_Y).addReg(RISCV::X11_Y);
+  Analysis->updateState(Ymv, nullptr, 0x1004);
+  EXPECT_FALSE(Analysis->evaluateBranch(jalr(RISCV::X0_Y, RISCV::X10_Y), 0x1008,
+                                        4, Target));
+
+  // An unconditional jump (JAL with X0_Y) is a terminator and resets state.
+  Analysis->updateState(Auipc, nullptr, 0x1000);
+  Analysis->updateState(jal(RISCV::X0_Y), nullptr, 0x1004);
+  EXPECT_FALSE(Analysis->evaluateBranch(jalr(RISCV::X0_Y, RISCV::X10_Y), 0x1008,
+                                        4, Target));
 }
 
 INSTANTIATE_TEST_SUITE_P(RV32And64, InstrAnalysisTest,
