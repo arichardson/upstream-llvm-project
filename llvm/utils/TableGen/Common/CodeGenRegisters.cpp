@@ -1316,11 +1316,13 @@ CodeGenRegBank::getOrCreateSubClass(const CodeGenRegisterClass *RC,
   return {&RegClasses.back(), true};
 }
 
-CodeGenRegisterClass *CodeGenRegBank::getRegClass(const Record *Def) const {
+CodeGenRegisterClass *CodeGenRegBank::getRegClass(const Record *Def,
+                                                  ArrayRef<SMLoc> Loc) const {
   if (CodeGenRegisterClass *RC = Def2RC.lookup(Def))
     return RC;
 
-  PrintFatalError(Def->getLoc(), "Not a known RegisterClass!");
+  PrintFatalError(Loc.empty() ? Def->getLoc() : Loc,
+                  "Not a known RegisterClass!");
 }
 
 CodeGenSubRegIndex *
