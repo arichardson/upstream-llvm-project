@@ -253,6 +253,33 @@ RegisterByHwMode::RegisterByHwMode(const Record *R, const CodeGenHwModes &CGH,
   }
 }
 
+void RegisterByHwMode::generateResolverCode(raw_ostream &OS,
+                                            const CodeGenHwModes &CGH,
+                                            unsigned Indent, StringRef OutVar) const {
+  unsigned NumModes = CGH.getNumModeIds();
+  OS << indent(Indent) << "static constexpr MCRegister RegByHwModeMatchTable["
+     << NumModes << "] = {\n";
+  for (unsigned M = 0; M < NumModes; ++M) {
+    if (!hasMode(M)) {
+      OS << indent(Indent + 2) << "MCRegister::NoRegister, // Missing mode\n";
+    } else {
+      const CodeGenRegister *R = get(M);
+      OS << indent(Indent + 2) << getQualifiedName(R->TheDef) << ", // "
+         << CGH.getModeName(M, /*IncludeDefault=*/true) << "\n";
+    }
+  }
+  OS << indent(Indent) << "};\n"
+     << indent(Indent)
+     << "const unsigned HwMode = "
+        "STI.getHwMode(MCSubtargetInfo::HwMode_RegInfo);\n"
+     << indent(Indent) << "const MCRegister " << OutVar
+     << " = RegByHwModeMatchTable[HwMode];\n"
+     // TODO: handle invalid registers here??
+     << indent(Indent) << "assert(" << OutVar
+     << ".isValid() && \"Incomplete RegByHwModeTable not "
+        "handled yet\");\n";
+}
+
 raw_ostream &llvm::operator<<(raw_ostream &OS, const ValueTypeByHwMode &T) {
   T.writeToStream(OS);
   return OS;

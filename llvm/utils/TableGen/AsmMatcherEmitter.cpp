@@ -2296,29 +2296,8 @@ emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
           unsigned NumModes = CGH.getNumModeIds();
           RegisterByHwMode RegByHwMode(OpInfo.Register, CGH,
                                        Target.getRegBank());
-          CvtOS << indent(6)
-                << "static constexpr MCRegister RegByHwModeMatchTable["
-                << NumModes << "] = {\n";
-          for (unsigned M = 0; M < NumModes; ++M) {
-            if (!RegByHwMode.hasMode(M)) {
-              CvtOS << indent(8) << "MCRegister::NoRegister, // Missing mode\n";
-            } else {
-              const CodeGenRegister *R = RegByHwMode.get(M);
-              CvtOS << indent(8) << getQualifiedName(R->TheDef) << ", // "
-                    << CGH.getModeName(M, /*IncludeDefault=*/true) << "\n";
-            }
-          }
-          CvtOS << indent(6) << "},\n"
-                << indent(6)
-                << "const unsigned HwMode = "
-                   "STI.getHwMode(MCSubtargetInfo::HwMode_RegInfo);"
-                << indent(6)
-                << "const MCRegister Reg = RegByHwModeMatchTable[HwMode];\n"
-                // TODO: handle invalid registers here??
-                << indent(6)
-                << "assert(Reg.isValid() && \"Incomplete RegByHwModeTable not "
-                   "handled yet\");\n"
-                << indent(6) << "Inst.addOperand(MCOperand::createReg(Reg));\n"
+          RegByHwMode.generateResolverCode(CvtOS, CGH, 6);
+          CvtOS << indent(6) << "Inst.addOperand(MCOperand::createReg(Reg));\n"
                 << indent(6) << "break;\n"
                 << indent(4) << "}\n";
         }

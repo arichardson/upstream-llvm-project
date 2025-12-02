@@ -1,4 +1,5 @@
-// RUN: llvm-tblgen --gen-asm-matcher -I %p/../../include -I %S %s -o - | FileCheck --check-prefix=ASMMATCHER %s
+// RUNs: llvm-tblgen --gen-asm-matcher -I %p/../../include -I %S %s -o - | FileCheck --check-prefix=ASMMATCHER %s
+// RUN: llvm-tblgen --gen-pseudo-lowering -I %p/../../include -I %S %s -o -
 // RUN: llvm-tblgen --gen-asm-writer -I %p/../../include -I %S %s -o -
 // RUN: llvm-tblgen --gen-subtarget -I %p/../../include -I %S %s -o -
 // RUN: llvm-tblgen --gen-disassembler -I %p/../../include -I %S %s -o -
@@ -220,20 +221,48 @@
 
 include "Common/RegisterByHwModeCommon.td"
 
-def MY_TEST_ALIAS : InstAlias<"test_alias $dst, $src", (TEST_PTRREG PtrRC:$dst, PtrRC:$src)>;
-def MY_T_X : InstAlias<"t_x $src", (TEST_XREG X0, XRegs:$src)>;
-def MY_T_Y : InstAlias<"t_y $src", (TEST_YREG Y0, YRegs:$src)>;
+// Define more restrictive subset classes to check that those are handled.
+def EvenXRegs : RegisterClass<"MyTarget", [XLenVT], 32, (add X0, X2)> {
+  let RegInfos = XLenRI;  // Needed to determine size of registers
+}
+def EvenYRegs : RegisterClass<"MyTarget", [YLenVT], 64, (add Y0, Y2)> {
+  let RegInfos = YLenRI;  // Needed to determine size of registers
+}
+def EvenPtrRC : RegClassByHwMode<[XPtr32,    XPtr64,    YPtr32,    YPtr64],
+                                 [EvenXRegs, EvenXRegs, EvenYRegs, EvenYRegs]>;
 
+def MY_TEST_ALIAS : InstAlias<"test_alias $dst, $src", (TEST_PTRREG PtrRC:$dst, PtrRC:$src)>;
+def MY_TEST_ALIAS_EVEN : InstAlias<"test_alias.even $dst, $src", (TEST_PTRREG EvenPtrRC:$dst, EvenPtrRC:$src)>;
+def MY_T_X : InstAlias<"t_x $src", (TEST_XREG X0, XRegs:$src)>;
+def MY_T_X_EVEN : InstAlias<"t_x.even $src", (TEST_XREG X0, XRegs:$src)>;
+def MY_T_Y : InstAlias<"t_y $src", (TEST_YREG Y0, YRegs:$src)>;
+def MY_T_Y_EVEN : InstAlias<"t_y.even $src", (TEST_YREG Y0, YRegs:$src)>;
 // Use a zero register that varies depend on the HWMode:
 def NullReg : RegisterByHwMode<PtrRC, [XPtr32, XPtr64, YPtr32, YPtr64],
                                       [X0,     X0,     Y0,     Y0]>;
-def MY_JUMP_PTR : InstAlias<"t $src", (TEST_PTRREG NullReg, PtrRC:$src)>;
+def MY_T_PTR : InstAlias<"t $src", (TEST_PTRREG NullReg, PtrRC:$src)>;
+def MY_T_PTR_EVEN : InstAlias<"t.even $src", (TEST_PTRREG NullReg, EvenPtrRC:$src)>;
 
 // Add another test where the register number varies, but the regclass doesn't
 def ModeCountReg : RegisterByHwMode<XRegs, [XPtr32, XPtr64, YPtr32, YPtr64],
                                            [X0,     X1,     X2,     X3]>;
 def TEST_MODE_COUNT : InstAlias<"mode_count $src", (TEST_XREG ModeCountReg, XRegs:$src)>;
 
+/// Include a test for -gen-pseudo-lowering:
+class Pseudo<dag outs, dag ins> : TestInstruction {
+  let OutOperandList = outs;
+  let InOperandList = ins;
+  let isPseudo = 1;
+  let isCodeGenOnly = 1;
+}
+def PseudoXMatchingClass : Pseudo<(outs), (ins XRegs:$rs1)>,
+    PseudoInstExpansion<(TEST_XREG X0, XRegs:$rs1)>;
+def PseudoXSubsetClass : Pseudo<(outs), (ins EvenXRegs:$rs1)>,
+    PseudoInstExpansion<(TEST_XREG X0, XRegs:$rs1)>;
+def PseudoPtrMatchingClass : Pseudo<(outs), (ins PtrRC:$rs1)>,
+    PseudoInstExpansion<(TEST_PTRREG NullReg, PtrRegOperand:$rs1)>;
+def PseudoPtrSubsetClass : Pseudo<(outs), (ins EvenPtrRC:$rs1)>,
+    PseudoInstExpansion<(TEST_PTRREG NullReg, PtrRegOperand:$rs1)>;
 
 // Test 2 different cases directly in the instruction
 // def MY_LOAD_X : TestInstruction {

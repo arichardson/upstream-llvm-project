@@ -259,6 +259,8 @@ struct RegisterByHwMode : public InfoByHwMode<const CodeGenRegister *> {
   RegisterByHwMode(const Record *R, const CodeGenHwModes &CGH,
                    CodeGenRegBank &RegBank);
   RegisterByHwMode() = default;
+  void generateResolverCode(raw_ostream &OS, const CodeGenHwModes &CGH,
+                            unsigned Indent = 2, StringRef OutVar = "Reg") const;
 };
 
 } // namespace llvm
