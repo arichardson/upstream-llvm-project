@@ -331,18 +331,6 @@ def YGPR
   let RegInfos = YLenRI;
 }
 
-// Note: We have to use a multiclass here instead of inheriting from
-// RegClassByHwMode since tablegen does not allow subclasses.
-// TODO: could add a usage assert here that AddrRC is XLenVT and CapRC YLenVT?
-multiclass PtrRegClassByHwMode<RegisterClass AddrRC, RegisterClass CapRC> {
-  def "" : RegClassByHwMode<[RV32I,  RV64I,  RV32Y, RV64Y],
-                            [AddrRC, AddrRC, CapRC, CapRC]>;
-}
-
-// This register class represents a pointer: YLen in capability mode, XLen
-// otherwise. Used for mode-dependent instructions such as AUIPC/JALR.
-defm PtrReg : PtrRegClassByHwMode<GPR, YGPR>;
-
 def GPRX0 : GPRRegisterClass<(add X0)>;
 
 def GPRX1 : GPRRegisterClass<(add X1)> {
@@ -381,12 +369,8 @@ def GPRX7 : GPRRegisterClass<(add X7)>;
 // X3, and X4 as it reduces the number of register classes that get synthesized
 // by tablegen.
 def GPRJALR : GPRRegisterClass<(sub GPR, (sequence "X%u", 0, 5))>;
-def YGPRJALR : GPRRegisterClass<(sub YGPR, (sequence "X%u", 0, 5))>;
-defm PtrJALR : PtrRegClassByHwMode<GPRJALR, YGPRJALR>;
 
 def GPRJALRNonX7 : GPRRegisterClass<(sub GPRJALR, X7)>;
-def YGPRJALRNonX7 : GPRRegisterClass<(sub YGPRJALR, X7)>;
-defm PtrJALRNonX7 : PtrRegClassByHwMode<GPRJALRNonX7, YGPRJALRNonX7>;
 
 def GPRC : GPRRegisterClass<(add (sequence "X%u", 10, 15),
                                  (sequence "X%u", 8, 9))>;
@@ -419,10 +403,6 @@ def GPRNoX31 : GPRRegisterClass<(sub GPR, X31)> {
   let DiagnosticString = "register must be a GPR excluding t6 (x31)";
 }
 
-def NullReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV64Y, RV64Y],
-                                       [X0,    X0,    X0_Y,  X0_Y]>;
-def ReturnReg : RegisterByHwMode<PtrReg, [RV32I, RV64I, RV64Y, RV64Y],
-                                         [X1,    X1,    X1_Y,  X1_Y]>;
 //===----------------------------------------------------------------------===//
 // Even-Odd GPR Pairs
 //===----------------------------------------------------------------------===//
