@@ -1077,6 +1077,15 @@ class RegisterOperand<RegisterClassLike regclass, string pm = "printOperand">
   Register GIZeroRegister = ?;
 }
 
+/// RegisterByHwMode - Useful for InstAliases with a hardcoded register operand
+/// where the operand type is a RegClassByHwMode.
+class RegisterByHwMode<RegisterClassLike RegClass, list<HwMode> Modes,
+                       list<Register> Registers>
+    : HwModeSelect<Modes, !size(Registers)>, RegisterOperand<RegClass> {
+  list<Register> Objects = Registers;
+  // FIXME: validate the registers against the register class.
+}
+
 let OperandType = "OPERAND_IMMEDIATE" in {
 def i1imm  : Operand<i1>;
 def i8imm  : Operand<i8>;

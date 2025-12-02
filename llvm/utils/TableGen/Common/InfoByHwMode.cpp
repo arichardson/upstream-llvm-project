@@ -18,6 +18,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include <string>
 
@@ -224,6 +225,31 @@ EncodingInfoByHwMode::EncodingInfoByHwMode(const Record *R,
     auto I = Map.try_emplace(P.first, P.second);
     assert(I.second && "Duplicate entry?");
     (void)I;
+  }
+}
+
+RegisterByHwMode::RegisterByHwMode(const Record *R, const CodeGenHwModes &CGH,
+                                   CodeGenRegBank &RegBank) {
+  const HwModeSelect &MS = CGH.getHwModeSelect(R);
+  const Record* RCDef = R->getValueAsDef("RegClass");
+  std::optional<RegClassByHwMode> RegClassByMode;
+  if (RCDef->isSubClassOf("RegClassByHwMode"))
+    RegClassByMode = RegClassByHwMode(RCDef, CGH, RegBank);
+  for (const HwModeSelect::PairType &P : MS.Items) {
+    assert(P.second && P.second->isSubClassOf("Register") &&
+           "Register value must subclass Register");
+    CodeGenRegister *Reg = RegBank.getReg(P.second);
+    const CodeGenRegisterClass *RC =
+        RegClassByMode ? RegClassByMode->get(P.first)
+                       : RegBank.getRegClass(RCDef, R->getLoc());
+    if (!RC->contains(Reg))
+      PrintFatalError(R->getLoc(), "Register " + Reg->getName() +
+                                       " for HwMode " +
+                                       CGH.getModeName(P.first) +
+                                       " is not a member of register class " +
+                                       RC->getName());
+    [[maybe_unused]] auto I = Map.try_emplace(P.first, Reg);
+    assert(I.second && "Duplicate entry?");
   }
 }
 

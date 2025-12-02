@@ -28,6 +28,7 @@
 namespace llvm {
 
 class CodeGenRegBank;
+class CodeGenRegister;
 class CodeGenRegisterClass;
 class Record;
 class raw_ostream;
@@ -252,6 +253,12 @@ public:
   RegClassByHwMode(const Record *R, const CodeGenHwModes &CGH,
                    const CodeGenRegBank &RegBank);
   RegClassByHwMode() = default;
+};
+
+struct RegisterByHwMode : public InfoByHwMode<const CodeGenRegister *> {
+  RegisterByHwMode(const Record *R, const CodeGenHwModes &CGH,
+                   CodeGenRegBank &RegBank);
+  RegisterByHwMode() = default;
 };
 
 } // namespace llvm

@@ -40,20 +40,23 @@ unsigned CodeGenInstAlias::ResultOperand::getMINumOperands() const {
 
 using ResultOperand = CodeGenInstAlias::ResultOperand;
 
-static Expected<ResultOperand> matchSimpleOperand(const Init *Arg,
-                                                  const StringInit *ArgName,
-                                                  const Record *Op,
-                                                  const CodeGenTarget &T,
-                                                  ArrayRef<SMLoc> Loc) {
+static Expected<ResultOperand>
+matchSimpleOperand(const Init *Arg, const StringInit *ArgName, const Record *Op,
+                   const CodeGenTarget &T, ArrayRef<SMLoc> Loc) {
   if (const Record *OpRC = T.getAsRegClassLike(Op)) {
     if (const auto *ArgDef = dyn_cast<DefInit>(Arg)) {
       const Record *ArgRec = ArgDef->getDef();
 
-      // Match 'RegClass:$name' or 'RegOp:$name'.
+      // Match 'RegClass:$name', 'RegOp:$name', or RegisterByHwMode.
       if (const Record *ArgRC = T.getInitValueAsRegClassLike(Arg)) {
+        if (ArgRec->isSubClassOf("RegisterByHwMode")) {
+          // Note: constraints are validated in RegisterByHwMode ctor later.
+          return ResultOperand::createRegister(ArgRec);
+        }
         if (ArgRC->isSubClassOf("RegisterClass")) {
           if (!OpRC->isSubClassOf("RegisterClass") ||
-              !T.getRegisterClass(OpRC, Loc).hasSubClass(&T.getRegisterClass(ArgRC, Loc)))
+              !T.getRegisterClass(OpRC, Loc).hasSubClass(
+                  &T.getRegisterClass(ArgRC, Loc)))
             return createStringError(
                 "argument register class " + ArgRC->getName() +
                 " is not a subclass of operand register class " +
@@ -71,7 +74,8 @@ static Expected<ResultOperand> matchSimpleOperand(const Init *Arg,
 
       // Match 'Reg'.
       if (ArgRec->isSubClassOf("Register")) {
-        if (!T.getRegisterClass(OpRC, Loc).contains(T.getRegBank().getReg(ArgRec)))
+        if (!T.getRegisterClass(OpRC, Loc).contains(
+                T.getRegBank().getReg(ArgRec)))
           return createStringError(
               "register argument " + ArgRec->getName() +
               " is not a member of operand register class " + OpRC->getName());

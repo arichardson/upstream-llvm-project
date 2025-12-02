@@ -451,8 +451,9 @@ struct MatchableInfo {
       /// the operand.
       ImmOperand,
 
-      /// RegOperand - This represents a fixed register that is dumped in.
-      RegOperand
+      /// RegOperand - This represents a fixed register (potentially depending
+      /// on the HwMode) that is dumped in.
+      RegOperand,
     } Kind;
 
     /// Tuple containing the index of the (earlier) result operand that should
@@ -2263,12 +2264,14 @@ emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
       }
       case MatchableInfo::ResOperand::RegOperand: {
         std::string Reg, Name;
+        bool IsRegByHwMode = false;
         if (!OpInfo.Register) {
           Name = "reg0";
           Reg = "0";
         } else {
           Reg = getQualifiedName(OpInfo.Register);
           Name = "reg" + OpInfo.Register->getName().str();
+          IsRegByHwMode = OpInfo.Register->isSubClassOf("RegisterByHwMode");
         }
         Signature += "__" + Name;
         Name = "CVT_" + Name;
@@ -2281,9 +2284,44 @@ emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
 
         if (!IsNewConverter)
           break;
-        CvtOS << "    case " << Name << ":\n"
-              << "      Inst.addOperand(MCOperand::createReg(" << Reg << "));\n"
-              << "      break;\n";
+
+        if (!IsRegByHwMode) {
+          CvtOS << "    case " << Name << ":\n"
+                << "      Inst.addOperand(MCOperand::createReg(" << Reg
+                << "));\n"
+                << "      break;\n";
+        } else {
+          CvtOS << indent(4) << "case " << Name << ": {\n";
+          const CodeGenHwModes &CGH = Target.getHwModes();
+          unsigned NumModes = CGH.getNumModeIds();
+          RegisterByHwMode RegByHwMode(OpInfo.Register, CGH,
+                                       Target.getRegBank());
+          CvtOS << indent(6)
+                << "static constexpr MCRegister RegByHwModeMatchTable["
+                << NumModes << "] = {\n";
+          for (unsigned M = 0; M < NumModes; ++M) {
+            if (!RegByHwMode.hasMode(M)) {
+              CvtOS << indent(8) << "MCRegister::NoRegister, // Missing mode\n";
+            } else {
+              const CodeGenRegister *R = RegByHwMode.get(M);
+              CvtOS << indent(8) << getQualifiedName(R->TheDef) << ", // "
+                    << CGH.getModeName(M, /*IncludeDefault=*/true) << "\n";
+            }
+          }
+          CvtOS << indent(6) << "},\n"
+                << indent(6)
+                << "const unsigned HwMode = "
+                   "STI.getHwMode(MCSubtargetInfo::HwMode_RegInfo);"
+                << indent(6)
+                << "const MCRegister Reg = RegByHwModeMatchTable[HwMode];\n"
+                // TODO: handle invalid registers here??
+                << indent(6)
+                << "assert(Reg.isValid() && \"Incomplete RegByHwModeTable not "
+                   "handled yet\");\n"
+                << indent(6) << "Inst.addOperand(MCOperand::createReg(Reg));\n"
+                << indent(6) << "break;\n"
+                << indent(4) << "}\n";
+        }
 
         OpOS << "    case " << Name << ":\n"
              << "      Operands[*(p + 1)]->setMCOperandNum(NumMCOperands);\n"

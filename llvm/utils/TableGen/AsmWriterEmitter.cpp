@@ -991,6 +991,7 @@ void AsmWriterEmitter::EmitPrintAliasInstruction(raw_ostream &O) {
           break;
         }
         case CodeGenInstAlias::ResultOperand::K_Reg:
+          // FIXME: Handle this
           if (!CGA.ResultOperands[i].getRegister()) {
             IAP.addCond(std::string(
                 formatv("AliasPatternCond::K_Reg, {}::NoRegister", Namespace)));
