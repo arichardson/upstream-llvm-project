@@ -3827,7 +3827,6 @@ void RISCVAsmParser::emitLoadStoreSymbol(MCInst &Inst, unsigned Opcode,
   }
   // The temporary register must be in the pointer register class which
   // depends on capability mode
-  // TODO: reject register zero since that is not valid for auipc destination.
   if (isRVYMode() &&
       RISCVMCRegisterClasses[RISCV::GPRRegClassID].contains(TmpReg))
     TmpReg =
