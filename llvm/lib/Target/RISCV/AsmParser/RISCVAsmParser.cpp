@@ -90,7 +90,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
            !STI->hasFeature(RISCV::FeatureVendorXLLVMRVYIPM);
   }
   unsigned getPtrAddiOpcode() const {
-    return isRVYCapMode() ? RISCV::YADDI : RISCV::ADDI;
+      return isRVYCapMode() ? RISCV::YADDI : RISCV::ADDI;
   }
   unsigned getPtrLoadOpcode() const {
     if (isRVYCapMode())
@@ -3814,7 +3814,6 @@ void RISCVAsmParser::emitLoadStoreSymbol(MCInst &Inst, unsigned Opcode,
   }
   // The temporary register must be in the pointer register class which
   // depends on capability mode
-  // TODO: reject register zero since that is not valid for auipc destination.
   if (isRVYCapMode() &&
       RISCVMCRegisterClasses[RISCV::GPRRegClassID].contains(TmpReg))
     TmpReg =
