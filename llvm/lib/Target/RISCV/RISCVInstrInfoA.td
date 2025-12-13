@@ -26,7 +26,7 @@ def ordering : RISCVOp {
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 class LR_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
     : RVInstRAtomic<0b00010, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins GPRMemZeroOffset:$rs1),
+                    (outs GPR:$rd), (ins BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs1"> {
   let rs2 = 0;
 }
@@ -41,7 +41,7 @@ multiclass LR_r_aq_rl<bits<3> funct3, string opcodestr> {
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 class SC_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
     : RVInstRAtomic<0b00011, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins GPR:$rs2, GPRMemZeroOffset:$rs1),
+                    (outs GPR:$rd), (ins GPR:$rs2, BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs2, $rs1">;
 
 multiclass SC_r_aq_rl<bits<3> funct3, string opcodestr> {
@@ -54,7 +54,7 @@ multiclass SC_r_aq_rl<bits<3> funct3, string opcodestr> {
 let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in
 class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string opcodestr>
     : RVInstRAtomic<funct5, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins GPR:$rs2, GPRMemZeroOffset:$rs1),
+                    (outs GPR:$rd), (ins GPR:$rs2, BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs2, $rs1">;
 
 multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string opcodestr> {
