@@ -214,6 +214,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
   ParseStatus parseExpression(OperandVector &Operands);
   ParseStatus parseRegister(OperandVector &Operands, bool AllowParens = false);
   ParseStatus parseMemOpBaseReg(OperandVector &Operands);
+  ParseStatus parseZeroOffsetPtr(OperandVector &Operands);
   ParseStatus parseZeroOffsetMemOp(OperandVector &Operands);
   ParseStatus parseStackPtr(OperandVector &Operands);
   ParseStatus parseOperandWithSpecifier(OperandVector &Operands);
@@ -513,6 +514,16 @@ public:
   bool isYGPR() const {
     return Kind == KindTy::Register &&
            RISCVMCRegisterClasses[RISCV::YGPRRegClassID].contains(Reg.Reg);
+  }
+  // Tablegen assumes a function without arguments for all predicates, so
+  // to pass the MCSubtargetInfo, we can just return a boolean functor.
+  struct PredicateMethodWithArgumentsWorkaround {
+    const bool Value;
+    int operator()() { return Value; }
+  };
+  PredicateMethodWithArgumentsWorkaround
+  isPtrReg(const MCSubtargetInfo &STI) const {
+    return {STI.hasFeature(RISCV::FeatureStdExtY) ? isYGPR() : isGPR()};
   }
 
   bool isStackPtr() const {
@@ -2880,6 +2891,18 @@ ParseStatus RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
 
   return ParseStatus::Success;
 }
+
+ParseStatus RISCVAsmParser::parseZeroOffsetPtr(OperandVector &Operands) {
+  auto Result = parseZeroOffsetMemOp(Operands);
+  if (Result.isSuccess()) {
+    // Convert the GPR operand to the appropriate register class if needed.
+    RISCVOperand &Op = static_cast<RISCVOperand &>(*Operands.back());
+    if (Op.isGPR() && isRVYMode())
+      Op.Reg.Reg = convertGPRToYGPR(Op.Reg.Reg);
+  }
+  return Result;
+}
+
 
 ParseStatus RISCVAsmParser::parseZeroOffsetMemOp(OperandVector &Operands) {
   // Atomic operations such as lr.w, sc.w, and amo*.w accept a "memory operand"
