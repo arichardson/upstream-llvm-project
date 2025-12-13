@@ -225,6 +225,16 @@ def ZeroOffsetMemOpOperand : AsmOperandClass {
   let ParserMethod = "parseZeroOffsetMemOp";
 }
 
+// TODO: remove ZeroOffsetMemOpOperand once we have tests for all instructions
+def ZeroOffsetBasePtrOperand : AsmOperandClass {
+  let Name = "ZeroOffsetBasePtrOperand";
+  let RenderMethod = "addRegOperands";
+  let PredicateMethod = "isPtrReg(STI)";
+  let ParserMethod = "parseZeroOffsetPtr";
+  let DiagnosticType = !strconcat("Invalid", Name);
+  let DiagnosticString = "operand must be a GPR with optional zero immediate";
+}
+
 class MemOperand<RegisterClassLike regClass> : RegisterOperand<regClass> {
   let OperandType = "OPERAND_MEMORY";
 }
@@ -235,6 +245,10 @@ def GPRMemZeroOffset : MemOperand<GPR> {
 }
 
 def BasePtr : MemOperand<BasePtrRegClass>;
+def BasePtrZeroOffset : MemOperand<BasePtrRegClass> {
+  let ParserMatchClass = ZeroOffsetBasePtrOperand;
+  let PrintMethod = "printZeroOffsetMemOp";
+}
 def SPMem : MemOperand<SP>;
 
 // Note: GPRCMem is a YGPRC in RVY mode. We could rename it but
