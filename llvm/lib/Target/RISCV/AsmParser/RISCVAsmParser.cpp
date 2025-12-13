@@ -223,6 +223,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
   ParseStatus parseExpression(OperandVector &Operands);
   ParseStatus parseRegister(OperandVector &Operands, bool AllowParens = false);
   ParseStatus parseMemOpBaseReg(OperandVector &Operands);
+  ParseStatus parseZeroOffsetPtr(OperandVector &Operands);
   ParseStatus parseZeroOffsetMemOp(OperandVector &Operands);
   ParseStatus parseOperandWithSpecifier(OperandVector &Operands);
   ParseStatus parseBareSymbol(OperandVector &Operands);
@@ -539,6 +540,13 @@ public:
     return Kind == KindTy::Register &&
            getRISCVMCRegisterClass(RISCV::YGPRRegClassID).contains(Reg.Reg);
   }
+
+  bool isYGPRNoX0() const {
+    return Kind == KindTy::Register &&
+           getRISCVMCRegisterClass(RISCV::YGPRNoX0RegClassID).contains(Reg.Reg);
+  }
+
+  bool isBasePtrReg() const { return isGPR() || isYGPRNoX0(); }
 
   bool isGPRPair() const {
     return Kind == KindTy::Register &&
@@ -2963,6 +2971,17 @@ ParseStatus RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
   Operands.push_back(RISCVOperand::createToken(")", getLoc()));
 
   return ParseStatus::Success;
+}
+
+ParseStatus RISCVAsmParser::parseZeroOffsetPtr(OperandVector &Operands) {
+  auto Result = parseZeroOffsetMemOp(Operands);
+  if (Result.isSuccess()) {
+    // Convert the GPR operand to the appropriate register class if needed.
+    RISCVOperand &Op = static_cast<RISCVOperand &>(*Operands.back());
+    if (Op.isGPR() && isRVYCapMode())
+      Op.Reg.Reg = convertGPRToYGPR(Op.Reg.Reg);
+  }
+  return Result;
 }
 
 ParseStatus RISCVAsmParser::parseZeroOffsetMemOp(OperandVector &Operands) {
