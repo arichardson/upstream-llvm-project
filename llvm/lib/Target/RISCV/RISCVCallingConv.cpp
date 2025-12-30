@@ -177,6 +177,23 @@ ArrayRef<MCPhysReg> RISCV::getArgGPRs(const RISCVABI::ABI ABI) {
   return ArrayRef(ArgIGPRs);
 }
 
+ArrayRef<MCPhysReg> RISCV::getArgYGPRs(const RISCVABI::ABI ABI) {
+  // The GPRs used for passing arguments in the ILP32* and LP64* ABIs, except
+  // the ILP32E ABI.
+  static const MCPhysReg ArgIYGPRs[] = {
+      RISCV::X10_Y, RISCV::X11_Y, RISCV::X12_Y, RISCV::X13_Y,
+      RISCV::X14_Y, RISCV::X15_Y, RISCV::X16_Y, RISCV::X17_Y};
+  // The GPRs used for passing arguments in the ILP32E/ILP64E ABI.
+  static const MCPhysReg ArgEYGPRs[] = {RISCV::X10_Y, RISCV::X11_Y,
+                                        RISCV::X12_Y, RISCV::X13_Y,
+                                        RISCV::X14_Y, RISCV::X15_Y};
+
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+    return ArrayRef(ArgEYGPRs);
+
+  return ArrayRef(ArgIYGPRs);
+}
+
 static ArrayRef<MCPhysReg> getArgGPR16s(const RISCVABI::ABI ABI) {
   // The GPRs used for passing arguments in the ILP32* and LP64* ABIs, except
   // the ILP32E ABI.
@@ -594,8 +611,6 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
   unsigned StoreSizeBytes = XLen / 8;
   Align StackAlign = Align(XLen / 8);
 
-  // FIXME: If P extension and V extension are enabled at the same time,
-  // who should go first?
   if (!Subtarget.isPExtPackedType(LocVT) &&
       (LocVT.isVector() || LocVT.isRISCVVectorTuple())) {
     Reg = allocateRVVReg(LocVT, ValNo, State, TLI);
@@ -627,6 +642,12 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
         StackAlign = MaybeAlign(LocVT.getScalarSizeInBits() / 8).valueOrOne();
       }
     }
+  } else if (Subtarget.hasStdExtY() && ValVT == Subtarget.getYLenVT()) {
+    Reg = State.AllocateReg(RISCV::getArgYGPRs(ABI));
+    StoreSizeBytes = ValVT.getFixedSizeInBits() / 8;
+    StackAlign = Align(StoreSizeBytes);
+    // FIXME: If P extension and V extension are enabled at the same time,
+    // who should go first?
   } else {
     Reg = State.AllocateReg(ArgGPRs);
   }
@@ -655,7 +676,7 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
   }
 
   assert(((LocVT.isFloatingPoint() && !LocVT.isVector()) || LocVT == XLenVT ||
-          Subtarget.isPExtPackedType(LocVT) ||
+          LocVT.isCheriCapability() || Subtarget.isPExtPackedType(LocVT) ||
           (TLI.getSubtarget().hasVInstructions() &&
            (LocVT.isVector() || LocVT.isRISCVVectorTuple()))) &&
          "Expected an XLenVT or vector types at this stage");
@@ -782,7 +803,8 @@ static bool CC_RISCV_FastCC(unsigned ValNo, MVT ValVT, MVT LocVT,
   }
 
   if (LocVT == XLenVT || LocVT == MVT::f16 || LocVT == MVT::bf16 ||
-      LocVT == MVT::f32 || LocVT == MVT::f64 || LocVT.isFixedLengthVector()) {
+      LocVT == MVT::f32 || LocVT == MVT::f64 || LocVT.isFixedLengthVector() ||
+      LocVT.isCheriCapability()) {
     Align StackAlign = MaybeAlign(ValVT.getScalarSizeInBits() / 8).valueOrOne();
     int64_t Offset = State.AllocateStack(LocVT.getStoreSize(), StackAlign);
     State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
