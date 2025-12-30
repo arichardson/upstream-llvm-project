@@ -238,6 +238,10 @@ public:
   unsigned getXLen() const {
     return is64Bit() ? 64 : 32;
   }
+  MVT getYLenVT() const {
+    assert(HasStdExtY && "Cannot get capability type for non-CHERI");
+    return is64Bit() ? MVT::c128 : MVT::c64;
+  }
   bool useMIPSLoadStorePairs() const;
   bool useMIPSCCMovInsn() const;
   unsigned getFLen() const {

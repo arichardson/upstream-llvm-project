@@ -28,6 +28,9 @@ struct RISCVRegisterInfo;
 
 class RISCVTargetLowering : public TargetLowering {
   const RISCVSubtarget &Subtarget;
+  /// The type to use for CHERI capabilities (if supported)
+  /// Should be one of c64/c128.
+  MVT CheriCapType = MVT::INVALID_SIMPLE_VALUE_TYPE;
 
 public:
   explicit RISCVTargetLowering(const TargetMachine &TM,
@@ -201,6 +204,17 @@ public:
 
   EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                          EVT VT) const override;
+  MVT getCheriCapabilityType() const { return CheriCapType; }
+  MVT getPointerTy(const DataLayout &DL, uint32_t AS = 0) const override {
+    if (DL.hasExternalState(AS))
+      return getCheriCapabilityType();
+    return TargetLowering::getPointerTy(DL, AS);
+  }
+  MVT getPointerMemTy(const DataLayout &DL, uint32_t AS) const override {
+    if (DL.hasExternalState(AS))
+      return getCheriCapabilityType();
+    return TargetLowering::getPointerMemTy(DL, AS);
+  }
 
   bool shouldFormOverflowOp(unsigned Opcode, EVT VT,
                             bool MathUsed) const override {

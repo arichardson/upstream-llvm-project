@@ -24,6 +24,7 @@ CCAssignFn RetCC_RISCV;
 namespace RISCV {
 
 ArrayRef<MCPhysReg> getArgGPRs(const RISCVABI::ABI ABI);
+ArrayRef<MCPhysReg> getArgYGPRs(const RISCVABI::ABI ABI);
 
 } // end namespace RISCV
 
