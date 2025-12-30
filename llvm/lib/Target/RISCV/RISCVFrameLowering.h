@@ -93,8 +93,17 @@ public:
 
   uint64_t getStackThreshold() const override;
 
+  MCPhysReg getFPReg() const { return FPReg; }
+  MCPhysReg getSPReg() const { return SPReg; }
+  MCPhysReg getRAReg() const { return RAReg; }
+  MCPhysReg getBPReg() const { return BPReg; }
+
 protected:
   const RISCVSubtarget &STI;
+  const MCPhysReg FPReg;
+  const MCPhysReg SPReg;
+  const MCPhysReg RAReg;
+  const MCPhysReg BPReg;
 
   bool hasFPImpl(const MachineFunction &MF) const override;
 

@@ -144,6 +144,13 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   switch (ABI) {
   default:
     reportFatalUsageError("Don't know how to lower this ABI");
+  case RISCVABI::ABI_IL32PC64:
+  case RISCVABI::ABI_IL32PC64F:
+  case RISCVABI::ABI_IL32PC64D:
+  case RISCVABI::ABI_IL32PC64E:
+  case RISCVABI::ABI_L64PC128:
+  case RISCVABI::ABI_L64PC128F:
+  case RISCVABI::ABI_L64PC128D:
   case RISCVABI::ABI_ILP32:
   case RISCVABI::ABI_ILP32E:
   case RISCVABI::ABI_LP64E:
@@ -154,6 +161,10 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   case RISCVABI::ABI_LP64D:
     break;
   }
+
+  if (Subtarget.isRVYCapMode() != RISCVABI::isCheriPureCapABI(ABI))
+    reportFatalUsageError(
+        "RVY capability pointer mode requires a pure-capability ABI");
 
   MVT XLenVT = Subtarget.getXLenVT();
 
@@ -177,6 +188,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       addRegisterClass(MVT::f64, &RISCV::GPRRegClass);
     else
       addRegisterClass(MVT::f64, &RISCV::GPRPairRegClass);
+  }
+
+  if (Subtarget.isRVYCapMode()) {
+    CheriCapType = Subtarget.getYLenVT();
+    addRegisterClass(CheriCapType, &RISCV::YGPRRegClass);
   }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {
@@ -331,7 +347,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   // Compute derived properties from the register classes.
   computeRegisterProperties(STI.getRegisterInfo());
 
-  setStackPointerRegisterToSaveRestore(RISCV::X2);
+  setStackPointerRegisterToSaveRestore(Subtarget.getFrameLowering()->getSPReg());
 
   setLoadExtAction({ISD::EXTLOAD, ISD::SEXTLOAD, ISD::ZEXTLOAD}, XLenVT,
                    MVT::i1, Promote);
@@ -27874,7 +27890,7 @@ static SDValue unpackFromMemLoc(SelectionDAG &DAG, SDValue Chain,
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
   EVT LocVT = VA.getLocVT();
-  EVT PtrVT = MVT::getIntegerVT(DAG.getDataLayout().getPointerSizeInBits(0));
+  EVT PtrVT = TLI.getFrameIndexTy(DAG.getDataLayout());
   int FI = MFI.CreateFixedObject(LocVT.getStoreSize(), VA.getLocMemOffset(),
                                  /*IsImmutable=*/true);
   SDValue FIN = DAG.getFrameIndex(FI, PtrVT);
@@ -27908,7 +27924,8 @@ static SDValue unpackF64OnRV32DSoftABI(SelectionDAG &DAG, SDValue Chain,
     // Second half of f64 is passed on the stack.
     int FI = MFI.CreateFixedObject(4, HiVA.getLocMemOffset(),
                                    /*IsImmutable=*/true);
-    SDValue FIN = DAG.getFrameIndex(FI, MVT::i32);
+    EVT PtrVT = DAG.getTargetLoweringInfo().getFrameIndexTy(DAG.getDataLayout());
+    SDValue FIN = DAG.getFrameIndex(FI, PtrVT);
     Hi = DAG.getLoad(MVT::i32, DL, Chain, FIN,
                      MachinePointerInfo::getFixedStack(MF, FI));
   } else {
@@ -27943,7 +27960,8 @@ static SDValue unpackGPRVecOnRV32(SelectionDAG &DAG, SDValue Chain,
     // Second half of f64 is passed on the stack.
     int FI = MFI.CreateFixedObject(4, HiVA.getLocMemOffset(),
                                    /*IsImmutable=*/true);
-    SDValue FIN = DAG.getFrameIndex(FI, MVT::i32);
+    EVT PtrVT = DAG.getTargetLoweringInfo().getFrameIndexTy(DAG.getDataLayout());
+    SDValue FIN = DAG.getFrameIndex(FI, PtrVT);
     Hi = DAG.getLoad(MVT::i32, DL, Chain, FIN,
                      MachinePointerInfo::getFixedStack(MF, FI));
   } else {
@@ -28030,7 +28048,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
       reportFatalUsageError("'rnmi' interrupt kind requires Srnmi extension");
   }
 
-  EVT PtrVT = getPointerTy(DAG.getDataLayout());
+  EVT PtrVT = getFrameIndexTy(DAG.getDataLayout());
   MVT XLenVT = Subtarget.getXLenVT();
   unsigned XLenInBytes = Subtarget.getXLen() / 8;
 
@@ -28083,8 +28101,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
       unsigned ArgIndex = Ins[InsIdx].OrigArgIndex;
       if (HasMusttail) {
         RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
-        Register VReg =
-            MF.getRegInfo().createVirtualRegister(&RISCV::GPRRegClass);
+        Register VReg = MF.getRegInfo().createVirtualRegister(
+            Subtarget.isRVYCapMode() ? &RISCV::YGPRRegClass
+                                     : &RISCV::GPRRegClass);
         Chain = DAG.getCopyToReg(Chain, DL, VReg, ArgValue);
         RVFI->setIncomingIndirectArg(ArgIndex, VReg);
       }
@@ -28096,7 +28115,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
         SDValue Offset = DAG.getIntPtrConstant(PartOffset, DL);
         if (PartVA.getValVT().isScalableVector())
           Offset = DAG.getNode(ISD::VSCALE, DL, XLenVT, Offset);
-        SDValue Address = DAG.getNode(ISD::ADD, DL, PtrVT, ArgValue, Offset);
+        SDValue Address = DAG.getMemBasePlusOffset(ArgValue, Offset, DL);
         InVals.push_back(DAG.getLoad(PartVA.getValVT(), DL, Chain, Address,
                                      MachinePointerInfo()));
         ++i;
@@ -28281,7 +28300,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
   bool &IsTailCall = CLI.IsTailCall;
   CallingConv::ID CallConv = CLI.CallConv;
   bool IsVarArg = CLI.IsVarArg;
-  EVT PtrVT = getPointerTy(DAG.getDataLayout());
+  EVT PtrVT = getFrameIndexTy(DAG.getDataLayout());
   MVT XLenVT = Subtarget.getXLenVT();
   const CallBase *CB = CLI.CB;
 
@@ -28330,7 +28349,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
 
     int FI =
         MF.getFrameInfo().CreateStackObject(Size, Alignment, /*isSS=*/false);
-    SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
+    SDValue FIPtr = DAG.getFrameIndex(FI, PtrVT);
     SDValue SizeNode = DAG.getConstant(Size, DL, XLenVT);
 
     Chain = DAG.getMemcpy(Chain, DL, FIPtr, Arg, SizeNode, Alignment, Alignment,
@@ -28375,10 +28394,10 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
       if (HiVA.isMemLoc()) {
         // Second half of f64 is passed on the stack.
         if (!StackPtr.getNode())
-          StackPtr = DAG.getCopyFromReg(Chain, DL, RISCV::X2, PtrVT);
-        SDValue Address =
-            DAG.getNode(ISD::ADD, DL, PtrVT, StackPtr,
-                        DAG.getIntPtrConstant(HiVA.getLocMemOffset(), DL));
+          StackPtr = DAG.getCopyFromReg(
+              Chain, DL, Subtarget.getFrameLowering()->getSPReg(), PtrVT);
+        SDValue Address = DAG.getMemBasePlusOffset(
+            StackPtr, TypeSize::getFixed(HiVA.getLocMemOffset()), DL);
         // Emit the store.
         MemOpChains.push_back(DAG.getStore(
             Chain, DL, Hi, Address,
@@ -28412,10 +28431,10 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
       if (HiVA.isMemLoc()) {
         // Second half of vector is passed on the stack.
         if (!StackPtr.getNode())
-          StackPtr = DAG.getCopyFromReg(Chain, DL, RISCV::X2, PtrVT);
-        SDValue Address =
-            DAG.getNode(ISD::ADD, DL, PtrVT, StackPtr,
-                        DAG.getIntPtrConstant(HiVA.getLocMemOffset(), DL));
+          StackPtr = DAG.getCopyFromReg(
+              Chain, DL, Subtarget.getFrameLowering()->getSPReg(), PtrVT);
+        SDValue Address = DAG.getMemBasePlusOffset(
+            StackPtr, TypeSize::getFixed(HiVA.getLocMemOffset()), DL);
         // Emit the store.
         MemOpChains.push_back(DAG.getStore(
             Chain, DL, Hi, Address,
@@ -28519,8 +28538,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
             EVT PartVT = PartValue.getValueType();
             if (PartVT.isScalableVector())
               Offset = DAG.getNode(ISD::VSCALE, DL, XLenVT, Offset);
-            SDValue Addr =
-                DAG.getNode(ISD::ADD, DL, PtrVT, IncomingPtr, Offset);
+            SDValue Addr = DAG.getMemBasePlusOffset(IncomingPtr, Offset, DL);
             MemOpChains.push_back(
                 DAG.getStore(CopyOp.getValue(1), DL, PartValue, Addr,
                              MachinePointerInfo::getUnknownStack(MF)));
@@ -28576,7 +28594,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
           SDValue PartValue = Part.first;
           SDValue PartOffset = Part.second;
           SDValue Address =
-              DAG.getNode(ISD::ADD, DL, PtrVT, SpillSlot, PartOffset);
+              DAG.getMemBasePlusOffset(SpillSlot, PartOffset, DL);
           MemOpChains.push_back(
               DAG.getStore(Chain, DL, PartValue, Address,
                            MachinePointerInfo::getFixedStack(MF, FI)));
@@ -28605,10 +28623,10 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
 
       // Work out the address of the stack slot.
       if (!StackPtr.getNode())
-        StackPtr = DAG.getCopyFromReg(Chain, DL, RISCV::X2, PtrVT);
-      SDValue Address =
-          DAG.getNode(ISD::ADD, DL, PtrVT, StackPtr,
-                      DAG.getIntPtrConstant(VA.getLocMemOffset(), DL));
+        StackPtr = DAG.getCopyFromReg(
+            Chain, DL, Subtarget.getFrameLowering()->getSPReg(), PtrVT);
+      SDValue Address = DAG.getMemBasePlusOffset(
+          StackPtr, TypeSize::getFixed(VA.getLocMemOffset()), DL);
 
       // Emit the store.
       MemOpChains.push_back(
@@ -28633,7 +28651,8 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
   // reserved, if so report an error. Do the same for the return address if this
   // is not a tailcall.
   validateCCReservedRegs(RegsToPass, MF);
-  if (!IsTailCall && MF.getSubtarget().isRegisterReservedByUser(RISCV::X1))
+  if (!IsTailCall && MF.getSubtarget().isRegisterReservedByUser(
+                         Subtarget.getFrameLowering()->getRAReg()))
     MF.getFunction().getContext().diagnose(DiagnosticInfoUnsupported{
         MF.getFunction(),
         "Return address register required, but has been reserved."});

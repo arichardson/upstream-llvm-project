@@ -229,9 +229,13 @@ public:
   MVT getXLenVT() const {
     return is64Bit() ? MVT::i64 : MVT::i32;
   }
-  unsigned getXLen() const {
-    return is64Bit() ? 64 : 32;
+  unsigned getXLen() const { return is64Bit() ? 64 : 32; }
+  MVT getYLenVT() const {
+    assert(hasStdExtYOrZyhybrid() &&
+           "Cannot get capability type for non-CHERI");
+    return is64Bit() ? MVT::c128 : MVT::c64;
   }
+  unsigned getYLen() const { return getYLenVT().getSizeInBits(); }
   bool useMIPSLoadStorePairs() const;
   bool useMIPSCCMovInsn() const;
   unsigned getFLen() const {

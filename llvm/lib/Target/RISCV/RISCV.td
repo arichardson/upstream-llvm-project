@@ -101,7 +101,7 @@ def RISCVAsmWriter : AsmWriter {
   int PassSubtarget = 1;
 }
 
-defm : RemapAllTargetPseudoPointerOperands<GPR>;
+defm : RemapAllTargetPseudoPointerOperands<PtrReg>;
 
 def RISCV : Target {
   let InstructionSet = RISCVInstrInfo;

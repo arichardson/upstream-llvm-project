@@ -342,8 +342,8 @@
 ; RUN: llc -mtriple=riscv64 -mattr=+sdext  %s -o - | FileCheck --check-prefix=RV64SDEXT %s
 ; RUN: llc -mtriple=riscv64 -mattr=+sdtrig  %s -o - | FileCheck --check-prefix=RV64SDTRIG %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-p %s -o - | FileCheck --check-prefix=RV64P %s
-; RUN: llc -mtriple=riscv64 -mattr=+experimental-y -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64Y %s
-; RUN: llc -mtriple=riscv64 -mattr=+experimental-y,+experimental-zyhybrid -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64Y-ZYHYBRID %s
+; RUN: llc -mtriple=riscv64 -mattr=+experimental-y -target-abi l64pc128 %s -o - | FileCheck --check-prefix=RV64Y %s
+; RUN: llc -mtriple=riscv64 -mattr=+experimental-y,+experimental-zyhybrid -target-abi l64pc128 %s -o - | FileCheck --check-prefix=RV64Y-ZYHYBRID %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zyhybrid -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64I-ZYHYBRID %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zibi %s -o - | FileCheck --check-prefix=RV64ZIBI %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zilx %s -o - | FileCheck --check-prefix=RV64ZILX %s

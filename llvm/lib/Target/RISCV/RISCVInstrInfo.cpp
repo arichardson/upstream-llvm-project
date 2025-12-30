@@ -165,6 +165,9 @@ Register RISCVInstrInfo::isLoadFromStackSlot(const MachineInstr &MI,
   case RISCV::FLD:
     MemBytes = TypeSize::getFixed(8);
     break;
+  case RISCV::LY:
+    MemBytes = TypeSize::getFixed(STI.getYLen() / 8);
+    break;
   case RISCV::VL1RE8_V:
   case RISCV::VL2RE8_V:
   case RISCV::VL4RE8_V:
@@ -215,6 +218,9 @@ Register RISCVInstrInfo::isStoreToStackSlot(const MachineInstr &MI,
   case RISCV::SD_RV32:
   case RISCV::FSD:
     MemBytes = TypeSize::getFixed(8);
+    break;
+  case RISCV::SY:
+    MemBytes = TypeSize::getFixed(STI.getYLen() / 8);
     break;
   case RISCV::VS1R_V:
   case RISCV::VS2R_V:
@@ -542,6 +548,12 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     return;
   }
 
+  if (RISCV::YGPRRegClass.contains(DstReg, SrcReg)) {
+    BuildMI(MBB, MBBI, DL, get(RISCV::YMV), DstReg)
+        .addReg(SrcReg, KillFlag | getRenamableRegState(RenamableSrc));
+    return;
+  }
+
   if (RISCV::GPRPairRegClass.contains(DstReg, SrcReg)) {
     if (!STI.is64Bit()) {
       if (STI.hasStdExtZdinx()) {
@@ -697,6 +709,8 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     Opcode = RISCV::FSW;
   } else if (RISCV::FPR64RegClass.hasSubClassEq(RC)) {
     Opcode = RISCV::FSD;
+  } else if (RISCV::YGPRRegClass.hasSubClassEq(RC)) {
+    Opcode = RISCV::SY;
   } else if (RISCV::VRRegClass.hasSubClassEq(RC)) {
     Opcode = RISCV::VS1R_V;
   } else if (RISCV::VRM2RegClass.hasSubClassEq(RC)) {
@@ -789,6 +803,8 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     Opcode = RISCV::FLW;
   } else if (RISCV::FPR64RegClass.hasSubClassEq(RC)) {
     Opcode = RISCV::FLD;
+  } else if (RISCV::YGPRRegClass.hasSubClassEq(RC)) {
+    Opcode = RISCV::LY;
   } else if (RISCV::VRRegClass.hasSubClassEq(RC)) {
     Opcode = RISCV::VL1RE8_V;
   } else if (RISCV::VRM2RegClass.hasSubClassEq(RC)) {

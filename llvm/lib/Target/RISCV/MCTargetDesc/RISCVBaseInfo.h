@@ -735,6 +735,22 @@ enum ABI {
   ABI_Unknown
 };
 
+inline bool isCheriPureCapABI(ABI A) {
+  switch (A) {
+  case ABI_IL32PC64:
+  case ABI_IL32PC64F:
+  case ABI_IL32PC64D:
+  case ABI_IL32PC64E:
+  case ABI_L64PC128:
+  case ABI_L64PC128F:
+  case ABI_L64PC128D:
+  case ABI_CHERIOT:
+    return true;
+  default:
+    return false;
+  }
+}
+
 // Returns the target ABI, or else a StringError if the requested ABIName is
 // not supported for the subtarget's triple and FeatureBits combination.
 Expected<ABI> computeTargetABI(const MCSubtargetInfo &STI, StringRef ABIName);

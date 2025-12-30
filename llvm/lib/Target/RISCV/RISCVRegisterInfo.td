@@ -299,6 +299,8 @@ def XLenRI : RegInfoByHwMode<
       [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>, RegInfo<64,64,64>]>;
 def YLenVT : ValueTypeByHwMode<[RV32I, RV64I, RV32Y, RV64Y],
                                [c64,   c128,  c64,   c128]>;
+def PtrVT : ValueTypeByHwMode<[RV32I, RV64I, RV32Y, RV64Y],
+                              [i32,   i64,   c64,   c128]>;
 def YLenRI : RegInfoByHwMode<
       [RV32I,               RV64I,                  RV32Y,               RV64Y],
       [RegInfo<64, 64, 64>, RegInfo<128, 128, 128>, RegInfo<64, 64, 64>, RegInfo<128, 128, 128>]>;

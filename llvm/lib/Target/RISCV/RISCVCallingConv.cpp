@@ -164,19 +164,32 @@ static const MCPhysReg ArgVRN4M2s[] = {
 static const MCPhysReg ArgVRN2M4s[] = {RISCV::V8M4_V12M4, RISCV::V12M4_V16M4,
                                        RISCV::V16M4_V20M4};
 
+// The GPRs used for passing arguments in the ILP32* and LP64* ABIs, except
+// the ILP32E ABI.
+static constexpr MCPhysReg ArgIGPRs[] = {RISCV::X10, RISCV::X11, RISCV::X12,
+                                         RISCV::X13, RISCV::X14, RISCV::X15,
+                                         RISCV::X16, RISCV::X17};
+// The GPRs used for passing arguments in the ILP32E/LP64E ABI.
+static constexpr MCPhysReg ArgEGPRs[] = {RISCV::X10, RISCV::X11, RISCV::X12,
+                                         RISCV::X13, RISCV::X14, RISCV::X15};
+
+template <size_t N>
+static constexpr std::array<MCPhysReg, N> toYGPRs(const MCPhysReg (&Regs)[N]) {
+  static_assert(RISCV::X31 - RISCV::X0 == 31 &&
+                RISCV::X31_Y - RISCV::X0_Y == 31);
+  std::array<MCPhysReg, N> Result{};
+  for (size_t I = 0; I < N; ++I) {
+    assert(Regs[I] >= RISCV::X0 && Regs[I] <= RISCV::X31 && "Invalid GPR");
+    Result[I] = Regs[I] - RISCV::X0 + RISCV::X0_Y;
+  }
+  return Result;
+}
+
 ArrayRef<MCPhysReg> RISCV::getArgGPRs(const RISCVSubtarget &STI) {
   RISCVABI::ABI ABI = STI.getTargetABI();
 
-  // The GPRs used for passing arguments in the ILP32* and LP64* ABIs, except
-  // the ILP32E ABI.
-  static const MCPhysReg ArgIGPRs[] = {RISCV::X10, RISCV::X11, RISCV::X12,
-                                       RISCV::X13, RISCV::X14, RISCV::X15,
-                                       RISCV::X16, RISCV::X17};
-  // The GPRs used for passing arguments in the ILP32E/LP64E ABI.
-  static const MCPhysReg ArgEGPRs[] = {RISCV::X10, RISCV::X11, RISCV::X12,
-                                       RISCV::X13, RISCV::X14, RISCV::X15};
-
-  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+      ABI == RISCVABI::ABI_IL32PC64E)
     return ArrayRef(ArgEGPRs);
 
   return ArrayRef(ArgIGPRs);
@@ -188,6 +201,9 @@ ArrayRef<MCPhysReg> RISCV::getArgFPRs(const RISCVSubtarget &STI) {
       RISCVABI::ABI_ILP32E,
       RISCVABI::ABI_LP64,
       RISCVABI::ABI_LP64E,
+      RISCVABI::ABI_IL32PC64,
+      RISCVABI::ABI_IL32PC64E,
+      RISCVABI::ABI_L64PC128,
   };
 
   RISCVABI::ABI ABI = STI.getTargetABI();
@@ -211,6 +227,16 @@ ArrayRef<MCPhysReg> RISCV::getArgVRs(const RISCVSubtarget &STI) {
   return {};
 }
 
+static ArrayRef<MCPhysReg> getArgYGPRs(const RISCVABI::ABI ABI) {
+  static constexpr auto ArgIYGPRs = toYGPRs(ArgIGPRs);
+  static constexpr auto ArgEYGPRs = toYGPRs(ArgEGPRs);
+
+  if (ABI == RISCVABI::ABI_IL32PC64E)
+    return ArrayRef(ArgEYGPRs);
+
+  return ArrayRef(ArgIYGPRs);
+}
+
 static ArrayRef<MCPhysReg> getArgGPR16s(const RISCVABI::ABI ABI) {
   // The GPRs used for passing arguments in the ILP32* and LP64* ABIs, except
   // the ILP32E ABI.
@@ -222,7 +248,8 @@ static ArrayRef<MCPhysReg> getArgGPR16s(const RISCVABI::ABI ABI) {
                                        RISCV::X12_H, RISCV::X13_H,
                                        RISCV::X14_H, RISCV::X15_H};
 
-  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+      ABI == RISCVABI::ABI_IL32PC64E)
     return ArrayRef(ArgEGPRs);
 
   return ArrayRef(ArgIGPRs);
@@ -239,28 +266,39 @@ static ArrayRef<MCPhysReg> getArgGPR32s(const RISCVABI::ABI ABI) {
                                        RISCV::X12_W, RISCV::X13_W,
                                        RISCV::X14_W, RISCV::X15_W};
 
-  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+      ABI == RISCVABI::ABI_IL32PC64E)
     return ArrayRef(ArgEGPRs);
 
   return ArrayRef(ArgIGPRs);
 }
 
+// The GPRs used for passing arguments in the FastCC, X5 and X6 might be used
+// for save-restore libcall, so we don't use them.
+// Don't use X7 for fastcc, since Zicfilp uses X7 as the label register.
+static constexpr MCPhysReg FastCCIGPRs[] = {
+    RISCV::X10, RISCV::X11, RISCV::X12, RISCV::X13, RISCV::X14, RISCV::X15,
+    RISCV::X16, RISCV::X17, RISCV::X28, RISCV::X29, RISCV::X30, RISCV::X31};
+// The GPRs used for passing arguments in the FastCC when using ILP32E/LP64E.
+static constexpr MCPhysReg FastCCEGPRs[] = {RISCV::X10, RISCV::X11, RISCV::X12,
+                                            RISCV::X13, RISCV::X14, RISCV::X15};
+
 static ArrayRef<MCPhysReg> getFastCCArgGPRs(const RISCVABI::ABI ABI) {
-  // The GPRs used for passing arguments in the FastCC, X5 and X6 might be used
-  // for save-restore libcall, so we don't use them.
-  // Don't use X7 for fastcc, since Zicfilp uses X7 as the label register.
-  static const MCPhysReg FastCCIGPRs[] = {
-      RISCV::X10, RISCV::X11, RISCV::X12, RISCV::X13, RISCV::X14, RISCV::X15,
-      RISCV::X16, RISCV::X17, RISCV::X28, RISCV::X29, RISCV::X30, RISCV::X31};
-
-  // The GPRs used for passing arguments in the FastCC when using ILP32E/LP64E.
-  static const MCPhysReg FastCCEGPRs[] = {RISCV::X10, RISCV::X11, RISCV::X12,
-                                          RISCV::X13, RISCV::X14, RISCV::X15};
-
-  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+      ABI == RISCVABI::ABI_IL32PC64E)
     return ArrayRef(FastCCEGPRs);
 
   return ArrayRef(FastCCIGPRs);
+}
+
+static ArrayRef<MCPhysReg> getFastCCArgYGPRs(const RISCVABI::ABI ABI) {
+  static constexpr auto FastCCIYGPRs = toYGPRs(FastCCIGPRs);
+  static constexpr auto FastCCEYGPRs = toYGPRs(FastCCEGPRs);
+
+  if (ABI == RISCVABI::ABI_IL32PC64E)
+    return ArrayRef(FastCCEYGPRs);
+
+  return ArrayRef(FastCCIYGPRs);
 }
 
 static ArrayRef<MCPhysReg> getFastCCArgGPRF16s(const RISCVABI::ABI ABI) {
@@ -277,7 +315,8 @@ static ArrayRef<MCPhysReg> getFastCCArgGPRF16s(const RISCVABI::ABI ABI) {
                                           RISCV::X12_H, RISCV::X13_H,
                                           RISCV::X14_H, RISCV::X15_H};
 
-  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+      ABI == RISCVABI::ABI_IL32PC64E)
     return ArrayRef(FastCCEGPRs);
 
   return ArrayRef(FastCCIGPRs);
@@ -297,7 +336,8 @@ static ArrayRef<MCPhysReg> getFastCCArgGPRF32s(const RISCVABI::ABI ABI) {
                                           RISCV::X12_W, RISCV::X13_W,
                                           RISCV::X14_W, RISCV::X15_W};
 
-  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E)
+  if (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+      ABI == RISCVABI::ABI_IL32PC64E)
     return ArrayRef(FastCCEGPRs);
 
   return ArrayRef(FastCCIGPRs);
@@ -313,7 +353,8 @@ static bool CC_RISCVAssign2XLen(CCState &State, CCValAssign VA1,
   unsigned XLen = Subtarget.getXLen();
   unsigned XLenInBytes = XLen / 8;
   RISCVABI::ABI ABI = Subtarget.getTargetABI();
-  bool EABI = ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E;
+  bool EABI = ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+              ABI == RISCVABI::ABI_IL32PC64E;
 
   ArrayRef<MCPhysReg> ArgGPRs = RISCV::getArgGPRs(Subtarget);
 
@@ -410,6 +451,7 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
 
   unsigned XLen = Subtarget.getXLen();
   MVT XLenVT = Subtarget.getXLenVT();
+  MVT PtrVT = TLI.getFrameIndexTy(DL);
 
   if (ArgFlags.isNest()) {
     // Static chain parameter must not be passed in normal argument registers,
@@ -419,11 +461,15 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
         MF.getInfo<RISCVMachineFunctionInfo>()->hasCFProtectionBranch();
 
     // Normal: t2, Branch control flow protection: t3
-    const auto StaticChainReg = HasCFBranch ? RISCV::X28 : RISCV::X7;
+    const auto StaticChainReg =
+        Subtarget.isRVYCapMode()
+            ? (HasCFBranch ? RISCV::X28_Y : RISCV::X7_Y)
+            : (HasCFBranch ? RISCV::X28 : RISCV::X7);
 
     RISCVABI::ABI ABI = Subtarget.getTargetABI();
     if (HasCFBranch &&
-        (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E))
+        (ABI == RISCVABI::ABI_ILP32E || ABI == RISCVABI::ABI_LP64E ||
+         ABI == RISCVABI::ABI_IL32PC64E))
       reportFatalUsageError(
           "Nested functions with control flow protection are not "
           "usable with ILP32E or LP64E ABI.");
@@ -457,13 +503,20 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
   case RISCVABI::ABI_ILP32E:
   case RISCVABI::ABI_LP64:
   case RISCVABI::ABI_LP64E:
+  case RISCVABI::ABI_IL32PC64:
+  case RISCVABI::ABI_IL32PC64E:
+  case RISCVABI::ABI_L64PC128:
     break;
   case RISCVABI::ABI_ILP32D:
   case RISCVABI::ABI_LP64D:
+  case RISCVABI::ABI_IL32PC64D:
+  case RISCVABI::ABI_L64PC128D:
     AllowFPRForF64 = !ArgFlags.isVarArg();
     [[fallthrough]];
   case RISCVABI::ABI_ILP32F:
   case RISCVABI::ABI_LP64F:
+  case RISCVABI::ABI_IL32PC64F:
+  case RISCVABI::ABI_L64PC128F:
     AllowFPRForF16_F32 = !ArgFlags.isVarArg();
     break;
   }
@@ -547,7 +600,7 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
   unsigned TwoXLenInBytes = (2 * XLen) / 8;
   if (ArgFlags.isVarArg() && ArgFlags.getNonZeroOrigAlign() == TwoXLenInBytes &&
       DL.getTypeAllocSize(OrigTy) == TwoXLenInBytes &&
-      ABI != RISCVABI::ABI_ILP32E) {
+      ABI != RISCVABI::ABI_ILP32E && ABI != RISCVABI::ABI_IL32PC64E) {
     unsigned RegIdx = State.getFirstUnallocated(ArgGPRs);
     // Skip 'odd' register if necessary.
     if (RegIdx != std::size(ArgGPRs) && RegIdx % 2 == 1)
@@ -647,13 +700,17 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
       // via the stack.
       if (IsRet)
         return true;
-      // Try using a GPR to pass the address
-      if ((Reg = State.AllocateReg(ArgGPRs))) {
-        LocVT = XLenVT;
+      // Try using a GPR/YGPR to pass the address
+      ArrayRef<MCPhysReg> PtrRegs =
+          Subtarget.isRVYCapMode() ? getArgYGPRs(ABI) : ArgGPRs;
+      if ((Reg = State.AllocateReg(PtrRegs))) {
+        LocVT = PtrVT;
         LocInfo = CCValAssign::Indirect;
       } else if (LocVT.isScalableVector()) {
-        LocVT = XLenVT;
+        LocVT = PtrVT;
         LocInfo = CCValAssign::Indirect;
+        StoreSizeBytes = PtrVT.getStoreSize();
+        StackAlign = Align(StoreSizeBytes);
       } else {
         StoreSizeBytes = LocVT.getStoreSize();
         // Align vectors to their element sizes, being careful for vXi1
@@ -661,6 +718,13 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
         StackAlign = MaybeAlign(LocVT.getScalarSizeInBits() / 8).valueOrOne();
       }
     }
+  } else if (Subtarget.isRVYCapMode() &&
+             (ValVT == Subtarget.getYLenVT() || !PendingLocs.empty())) {
+    // Allocate a capability register/stack slot for capability values or for
+    // the indirect pointer of a >2*XLEN split argument.
+    Reg = State.AllocateReg(getArgYGPRs(ABI));
+    StoreSizeBytes = Subtarget.getYLen() / 8;
+    StackAlign = Align(StoreSizeBytes);
   } else {
     Reg = State.AllocateReg(ArgGPRs);
   }
@@ -677,10 +741,10 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
     for (auto &It : PendingLocs) {
       if (Reg)
         State.addLoc(CCValAssign::getReg(It.getValNo(), It.getValVT(), Reg,
-                                         XLenVT, CCValAssign::Indirect));
+                                         PtrVT, CCValAssign::Indirect));
       else
         State.addLoc(CCValAssign::getMem(It.getValNo(), It.getValVT(),
-                                         StackOffset, XLenVT,
+                                         StackOffset, PtrVT,
                                          CCValAssign::Indirect));
     }
     PendingLocs.clear();
@@ -689,7 +753,7 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
   }
 
   assert(((LocVT.isFloatingPoint() && !LocVT.isVector()) || LocVT == XLenVT ||
-          Subtarget.isPExtPackedType(LocVT) ||
+          LocVT.isCheriCapability() || Subtarget.isPExtPackedType(LocVT) ||
           (TLI.getSubtarget().hasVInstructions() &&
            (LocVT.isVector() || LocVT.isRISCVVectorTuple()))) &&
          "Expected an XLenVT or vector types at this stage");
@@ -800,11 +864,13 @@ static bool CC_RISCV_FastCC(unsigned ValNo, MVT ValVT, MVT LocVT,
     }
 
     // Pass scalable vectors indirectly. Pass fixed vectors indirectly if we
-    // have a free GPR.
+    // have a free GPR/YGPR.
+    ArrayRef<MCPhysReg> PtrRegs =
+        Subtarget.isRVYCapMode() ? getFastCCArgYGPRs(ABI) : ArgGPRs;
     if (LocVT.isScalableVector() ||
-        State.getFirstUnallocated(ArgGPRs) != ArgGPRs.size()) {
+        State.getFirstUnallocated(PtrRegs) != PtrRegs.size()) {
       LocInfo = CCValAssign::Indirect;
-      LocVT = XLenVT;
+      LocVT = TLI.getFrameIndexTy(MF.getDataLayout());
     }
   }
 
@@ -815,9 +881,20 @@ static bool CC_RISCV_FastCC(unsigned ValNo, MVT ValVT, MVT LocVT,
     }
   }
 
-  if (LocVT == XLenVT || LocVT == MVT::f16 || LocVT == MVT::bf16 ||
-      LocVT == MVT::f32 || LocVT == MVT::f64 || LocVT.isFixedLengthVector()) {
-    Align StackAlign = MaybeAlign(ValVT.getScalarSizeInBits() / 8).valueOrOne();
+  if (Subtarget.isRVYCapMode() && LocVT == Subtarget.getYLenVT()) {
+    if (MCRegister Reg = State.AllocateReg(getFastCCArgYGPRs(ABI))) {
+      State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
+      return false;
+    }
+  }
+
+  if (LocVT == XLenVT || LocVT.isCheriCapability() || LocVT == MVT::f16 ||
+      LocVT == MVT::bf16 || LocVT == MVT::f32 || LocVT == MVT::f64 ||
+      LocVT.isFixedLengthVector()) {
+    Align StackAlign =
+        LocVT.isCheriCapability()
+            ? Align(LocVT.getStoreSize())
+            : MaybeAlign(ValVT.getScalarSizeInBits() / 8).valueOrOne();
     int64_t Offset = State.AllocateStack(LocVT.getStoreSize(), StackAlign);
     State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
     return false;
@@ -834,7 +911,7 @@ static bool CC_RISCV_GHC(unsigned ValNo, MVT ValVT, MVT LocVT,
         "Attribute 'nest' is not supported in GHC calling convention");
   }
 
-  static const MCPhysReg GPRList[] = {
+  static constexpr MCPhysReg GPRList[] = {
       RISCV::X9,  RISCV::X18, RISCV::X19, RISCV::X20, RISCV::X21, RISCV::X22,
       RISCV::X23, RISCV::X24, RISCV::X25, RISCV::X26, RISCV::X27};
 
@@ -849,6 +926,14 @@ static bool CC_RISCV_GHC(unsigned ValNo, MVT ValVT, MVT LocVT,
 
   const RISCVSubtarget &Subtarget =
       State.getMachineFunction().getSubtarget<RISCVSubtarget>();
+
+  if (Subtarget.isRVYCapMode() && LocVT == Subtarget.getYLenVT()) {
+    static constexpr auto YGPRList = toYGPRs(GPRList);
+    if (MCRegister Reg = State.AllocateReg(YGPRList)) {
+      State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
+      return false;
+    }
+  }
 
   if (LocVT == MVT::f32 && Subtarget.hasStdExtF()) {
     // Pass in STG registers: F1, ..., F6

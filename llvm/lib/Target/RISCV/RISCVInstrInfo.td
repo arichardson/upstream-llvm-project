@@ -30,7 +30,7 @@ def SDT_CallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
                                      SDTCisVT<1, i32>]>;
 
 // Target-dependent type requirements.
-def SDT_RISCVCall     : SDTypeProfile<0, -1, [SDTCisVT<0, XLenVT>]>;
+def SDT_RISCVCall     : SDTypeProfile<0, -1, [SDTCisVT<0, PtrVT>]>;
 def SDT_RISCVSelectCC : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
                                              SDTCisVT<3, OtherVT>,
                                              SDTCisSameAs<0, 4>,
@@ -534,7 +534,7 @@ def BareSymbol : AsmOperandClass {
 }
 
 // A bare symbol.
-def bare_symbol : Operand<XLenVT> {
+def bare_symbol : Operand<PtrVT> {
   let ParserMatchClass = BareSymbol;
 }
 
@@ -547,7 +547,7 @@ def CallSymbol : AsmOperandClass {
 }
 
 // A bare symbol used in call/tail only.
-def call_symbol : Operand<XLenVT> {
+def call_symbol : Operand<PtrVT> {
   let ParserMatchClass = CallSymbol;
 }
 
@@ -562,7 +562,7 @@ def TailCallSymbol : AsmOperandClass {
 
 // Like call_symbol but allows the symbol to be followed by a comma
 // (for "tail address, register" form).
-def tail_call_symbol : Operand<XLenVT> {
+def tail_call_symbol : Operand<PtrVT> {
   let ParserMatchClass = TailCallSymbol;
 }
 
@@ -575,7 +575,7 @@ def PseudoJumpSymbol : AsmOperandClass {
 }
 
 // A bare symbol used for pseudo jumps only.
-def pseudo_jump_symbol : Operand<XLenVT> {
+def pseudo_jump_symbol : Operand<PtrVT> {
   let ParserMatchClass = PseudoJumpSymbol;
 }
 
@@ -1996,13 +1996,13 @@ def PseudoTAILIndirectX7 : Pseudo<(outs), (ins PtrX7:$rs1),
                            PseudoInstExpansion<(JALR NullReg, PtrReg:$rs1, 0)>;
 }
 
-def : Pat<(riscv_tail (iPTR tglobaladdr:$dst)),
+def : Pat<(riscv_tail (PtrVT tglobaladdr:$dst)),
           (PseudoTAIL tglobaladdr:$dst)>;
-def : Pat<(riscv_tail (iPTR texternalsym:$dst)),
+def : Pat<(riscv_tail (PtrVT texternalsym:$dst)),
           (PseudoTAIL texternalsym:$dst)>;
-def : Pat<(riscv_sw_guarded_tail (iPTR tglobaladdr:$dst)),
+def : Pat<(riscv_sw_guarded_tail (PtrVT tglobaladdr:$dst)),
           (PseudoTAILX7 tglobaladdr:$dst)>;
-def : Pat<(riscv_sw_guarded_tail (iPTR texternalsym:$dst)),
+def : Pat<(riscv_sw_guarded_tail (PtrVT texternalsym:$dst)),
           (PseudoTAILX7 texternalsym:$dst)>;
 
 let isCall = 0, isBarrier = 1, isBranch = 1, isTerminator = 1, Size = 8,
@@ -2132,8 +2132,8 @@ def PseudoZEXT_W : Pseudo<(outs GPR:$rd), (ins GPR:$rs), [], "zext.w", "$rd, $rs
 /// Loads
 
 class LdPat<PatFrag LoadOp, RVInst Inst, ValueType vt = XLenVT,
-            ValueType PtrVT = XLenVT>
-    : Pat<(vt (LoadOp (AddrRegImm (PtrVT BasePtr:$rs1), simm12_lo:$imm12))),
+            ValueType ptrVT = XLenVT>
+    : Pat<(vt (LoadOp (AddrRegImm (ptrVT BasePtr:$rs1), simm12_lo:$imm12))),
           (Inst BasePtr:$rs1, simm12_lo:$imm12)>;
 
 def : LdPat<sextloadi8, LB>;
@@ -2147,8 +2147,8 @@ def : LdPat<zextloadi16, LHU>;
 /// Stores
 
 class StPat<PatFrag StoreOp, RVInst Inst, RegisterClass StTy,
-            ValueType vt, ValueType PtrVT = XLenVT>
-    : Pat<(StoreOp (vt StTy:$rs2), (AddrRegImm (PtrVT BasePtr:$rs1),
+            ValueType vt, ValueType ptrVT = XLenVT>
+    : Pat<(StoreOp (vt StTy:$rs2), (AddrRegImm (ptrVT BasePtr:$rs1),
                    simm12_lo:$imm12)),
           (Inst StTy:$rs2, BasePtr:$rs1, simm12_lo:$imm12)>;
 

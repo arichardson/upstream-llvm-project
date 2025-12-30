@@ -38,21 +38,21 @@ def GIImmPlus1 :
   GISDNodeXFormEquiv<ImmPlus1>;
 
 // Ptr type used in patterns with GlobalISelEmitter
-def PtrVT : PtrValueTypeByHwMode<XLenVT, 0>;
+def GIPtrVT : PtrValueTypeByHwMode<XLenVT, 0>;
 
 // Define pattern expansions for pointer ult/slt conditional codes
-def : Pat<(XLenVT (setult (PtrVT GPR:$rs1), simm12_lo:$imm12)),
+def : Pat<(XLenVT (setult (GIPtrVT GPR:$rs1), simm12_lo:$imm12)),
           (SLTIU GPR:$rs1, simm12_lo:$imm12)>;
-def : Pat<(XLenVT (setult (PtrVT GPR:$rs1), (PtrVT GPR:$rs2))),
+def : Pat<(XLenVT (setult (GIPtrVT GPR:$rs1), (GIPtrVT GPR:$rs2))),
           (SLTU GPR:$rs1, GPR:$rs2)>;
-def : Pat<(XLenVT (setlt (PtrVT GPR:$rs1), simm12_lo:$imm12)),
+def : Pat<(XLenVT (setlt (GIPtrVT GPR:$rs1), simm12_lo:$imm12)),
           (SLTI GPR:$rs1, simm12_lo:$imm12)>;
-def : Pat<(XLenVT (setlt (PtrVT GPR:$rs1), (PtrVT GPR:$rs2))),
+def : Pat<(XLenVT (setlt (GIPtrVT GPR:$rs1), (GIPtrVT GPR:$rs2))),
           (SLT GPR:$rs1, GPR:$rs2)>;
 
 // Define pattern expansions for setcc operations that aren't directly
 // handled by a RISC-V instruction.
-foreach Ty = [PtrVT, XLenVT] in {
+foreach Ty = [GIPtrVT, XLenVT] in {
 def : Pat<(XLenVT (seteq (Ty GPR:$rs1), (Ty 0))), (SLTIU GPR:$rs1, 1)>;
 def : Pat<(XLenVT (seteq (Ty GPR:$rs1), (Ty simm12Plus1:$imm12))),
           (SLTIU (ADDI GPR:$rs1, (NegImm simm12Plus1:$imm12)), 1)>;
@@ -91,13 +91,13 @@ def : Pat<(XLenVT (setle (Ty GPR:$rs1), (Ty GPR:$rs2))),
 }
 
 let Predicates = [IsRV32] in {
-def : LdPat<load, LW, PtrVT>;
-def : StPat<store, SW, GPR, PtrVT>;
+def : LdPat<load, LW, GIPtrVT>;
+def : StPat<store, SW, GPR, GIPtrVT>;
 }
 
 let Predicates = [IsRV64] in {
-def : LdPat<load, LD, PtrVT>;
-def : StPat<store, SD, GPR, PtrVT>;
+def : LdPat<load, LD, GIPtrVT>;
+def : StPat<store, SD, GPR, GIPtrVT>;
 }
 
 //===----------------------------------------------------------------------===//
