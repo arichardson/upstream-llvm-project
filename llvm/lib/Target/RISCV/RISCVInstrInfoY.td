@@ -295,3 +295,15 @@ def YMODEW : RVY_rr<0b0101011, "ymodew", YGPRNoX0, YGPR, GPR>;
 def YMODESWY : RVY_modesw<0b00000, "ymodeswy">;
 def YMODESWI : RVY_modesw<0b00001, "ymodeswi">;
 } // Predicates = [HasStdExtZyhybrid]
+
+//===----------------------------------------------------------------------===//
+// Codegen patterns
+//===----------------------------------------------------------------------===//
+
+let Predicates = [IsStdExtYCapMode] in {
+def : LdPat<load, LY, YLenVT>;
+def : StPat<store, SY, YGPR, YLenVT>;
+def : Pat<(YLenVT frameindex:$fi), (YADDI (YLenVT (to_tframeindex $fi)), 0)>;
+def : Pat<(ptradd (YLenVT frameindex:$fi), simm12_lo:$offset),
+          (YADDI (YLenVT (to_tframeindex $fi)), simm12_lo:$offset)>;
+} // Predicates = [IsStdExtYCapMode]

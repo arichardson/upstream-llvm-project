@@ -631,7 +631,7 @@ def uimm6gt32 : ImmLeaf<XLenVT, [{
 }]>;
 
 // Addressing modes.
-def AddrRegImm : ComplexPattern<iPTR, 2, "SelectAddrRegImm">;
+def AddrRegImm : ComplexPattern<PtrVT, 2, "SelectAddrRegImm">;
 
 class AddrRegRegScale<int N>
     : ComplexPattern<iPTR, 3, "SelectAddrRegRegScale<"#N#">">;
@@ -2132,7 +2132,7 @@ def PseudoZEXT_W : Pseudo<(outs GPR:$rd), (ins GPR:$rs), [], "zext.w", "$rd, $rs
 /// Loads
 
 class LdPat<PatFrag LoadOp, RVInst Inst, ValueType vt = XLenVT,
-            ValueType ptrVT = XLenVT>
+            ValueType ptrVT = PtrVT>
     : Pat<(vt (LoadOp (AddrRegImm (ptrVT BasePtr:$rs1), simm12_lo:$imm12))),
           (Inst BasePtr:$rs1, simm12_lo:$imm12)>;
 
@@ -2147,7 +2147,7 @@ def : LdPat<zextloadi16, LHU>;
 /// Stores
 
 class StPat<PatFrag StoreOp, RVInst Inst, RegisterClass StTy,
-            ValueType vt, ValueType ptrVT = XLenVT>
+            ValueType vt, ValueType ptrVT = PtrVT>
     : Pat<(StoreOp (vt StTy:$rs2), (AddrRegImm (ptrVT BasePtr:$rs1),
                    simm12_lo:$imm12)),
           (Inst StTy:$rs2, BasePtr:$rs1, simm12_lo:$imm12)>;

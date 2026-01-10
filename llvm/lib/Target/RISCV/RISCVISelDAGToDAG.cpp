@@ -3463,7 +3463,7 @@ bool RISCVDAGToDAGISel::SelectInlineAsmMemoryOperand(
 bool RISCVDAGToDAGISel::SelectAddrFrameIndex(SDValue Addr, SDValue &Base,
                                              SDValue &Offset) {
   if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
-    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), Subtarget->getXLenVT());
+    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), Addr.getSimpleValueType());
     Offset = CurDAG->getTargetConstant(0, SDLoc(Addr), Subtarget->getXLenVT());
     return true;
   }
@@ -3533,8 +3533,8 @@ static bool isWorthFoldingAdd(SDValue Add) {
         User->getOpcode() != ISD::ATOMIC_STORE)
       return false;
     EVT VT = cast<MemSDNode>(User)->getMemoryVT();
-    if (!VT.isScalarInteger() && VT != MVT::f16 && VT != MVT::f32 &&
-        VT != MVT::f64)
+    if (!VT.isScalarInteger() && !VT.isCheriCapability() && VT != MVT::f16 &&
+        VT != MVT::f32 && VT != MVT::f64)
       return false;
     // Don't allow stores of the value. It must be used as the address.
     if (User->getOpcode() == ISD::STORE &&
@@ -3619,6 +3619,7 @@ bool RISCVDAGToDAGISel::SelectAddrRegImm(SDValue Addr, SDValue &Base,
 
   SDLoc DL(Addr);
   MVT VT = Addr.getSimpleValueType();
+  MVT XLenVT = Subtarget->getXLenVT();
 
   if (Addr.getOpcode() == RISCVISD::ADD_LO) {
     bool CanFold = true;
@@ -3667,26 +3668,28 @@ bool RISCVDAGToDAGISel::SelectAddrRegImm(SDValue Addr, SDValue &Base,
 
       if (auto *FIN = dyn_cast<FrameIndexSDNode>(Base))
         Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), VT);
-      Offset = CurDAG->getSignedTargetConstant(CVal, DL, VT);
+      Offset = CurDAG->getSignedTargetConstant(CVal, DL, XLenVT);
       return true;
     }
   }
 
-  // Handle ADD with large immediates.
-  if (Addr.getOpcode() == ISD::ADD && isa<ConstantSDNode>(Addr.getOperand(1))) {
+  // Handle ADD/PTRADD with large immediates.
+  if (Addr->isAnyAdd() && isa<ConstantSDNode>(Addr.getOperand(1))) {
     int64_t CVal = cast<ConstantSDNode>(Addr.getOperand(1))->getSExtValue();
     assert(!isInt<12>(CVal) && "simm12 not already handled?");
 
     // Handle immediates in the range [-4096,-2049] or [2048, 4094]. We can use
-    // an ADDI for part of the offset and fold the rest into the load/store.
-    // This mirrors the AddiPair PatFrag in RISCVInstrInfo.td.
+    // an ADDI/YADDI for part of the offset and fold the rest into the
+    // load/store. This mirrors the AddiPair PatFrag in RISCVInstrInfo.td.
     if (CVal >= -4096 && CVal <= 4094) {
       int64_t Adj = CVal < 0 ? -2048 : 2047;
+      unsigned AddiOpc = VT.isCheriCapability() ? RISCV::YADDI : RISCV::ADDI;
       Base = SDValue(
-          CurDAG->getMachineNode(RISCV::ADDI, DL, VT, Addr.getOperand(0),
-                                 CurDAG->getSignedTargetConstant(Adj, DL, VT)),
+          CurDAG->getMachineNode(AddiOpc, DL, VT, Addr.getOperand(0),
+                                 CurDAG->getSignedTargetConstant(Adj, DL,
+                                                                 XLenVT)),
           0);
-      Offset = CurDAG->getSignedTargetConstant(CVal - Adj, DL, VT);
+      Offset = CurDAG->getSignedTargetConstant(CVal - Adj, DL, XLenVT);
       return true;
     }
 
@@ -3697,22 +3700,24 @@ bool RISCVDAGToDAGISel::SelectAddrRegImm(SDValue Addr, SDValue &Base,
     // separately with the full materialized immediate creating extra
     // instructions.
     if (isWorthFoldingAdd(Addr) &&
-        selectConstantAddr(CurDAG, DL, VT, Subtarget, Addr.getOperand(1), Base,
-                           Offset, /*IsPrefetch=*/false)) {
-      // Insert an ADD instruction with the materialized Hi52 bits.
+        selectConstantAddr(CurDAG, DL, XLenVT, Subtarget, Addr.getOperand(1),
+                           Base, Offset, /*IsPrefetch=*/false)) {
+      // Insert an ADD/YADD instruction with the materialized Hi52 bits.
+      unsigned AddOpc = VT.isCheriCapability() ? RISCV::YADD : RISCV::ADD;
       Base = SDValue(
-          CurDAG->getMachineNode(RISCV::ADD, DL, VT, Addr.getOperand(0), Base),
+          CurDAG->getMachineNode(AddOpc, DL, VT, Addr.getOperand(0), Base),
           0);
       return true;
     }
   }
 
-  if (selectConstantAddr(CurDAG, DL, VT, Subtarget, Addr, Base, Offset,
+  if (!VT.isCheriCapability() &&
+      selectConstantAddr(CurDAG, DL, VT, Subtarget, Addr, Base, Offset,
                          /*IsPrefetch=*/false))
     return true;
 
   Base = Addr;
-  Offset = CurDAG->getTargetConstant(0, DL, VT);
+  Offset = CurDAG->getTargetConstant(0, DL, XLenVT);
   return true;
 }
 
