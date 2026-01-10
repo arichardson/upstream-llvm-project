@@ -284,3 +284,6 @@ def YMODEW : RVY_rr<0b0101011, "ymodew", YGPRNoX0, YGPR, GPR>;
 def YMODESWY : RVY_modesw<0b00000, "ymodeswy">;
 def YMODESWI : RVY_modesw<0b00001, "ymodeswi">;
 }
+
+def : LdPat<load, LY, YLenVT>, Requires<[HasStdExtY]>;
+def : StPat<store, SY, YGPR, YLenVT>, Requires<[HasStdExtY]>;
