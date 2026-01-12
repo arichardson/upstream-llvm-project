@@ -1735,7 +1735,10 @@ SDValue SelectionDAG::getConstant(const APInt &Val, const SDLoc &DL, EVT VT,
 
 SDValue SelectionDAG::getConstant(const ConstantInt &Val, const SDLoc &DL,
                                   EVT VT, bool isT, bool isO) {
-  assert(VT.isInteger() && "Cannot create FP integer constant!");
+  if (VT.isCheriCapability())
+    assert(Val.isZero() && "Only null capability constants are supported!");
+  else
+    assert(VT.isInteger() && "Cannot create FP integer constant!");
 
   EVT EltVT = VT.getScalarType();
   const ConstantInt *Elt = &Val;
