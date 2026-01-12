@@ -1116,8 +1116,16 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
 
   switch (Opcode) {
   case ISD::Constant: {
-    assert(VT == Subtarget->getXLenVT() && "Unexpected VT");
     auto *ConstNode = cast<ConstantSDNode>(Node);
+    if (VT.isCheriCapability()) {
+      assert(VT == Subtarget->getYLenVT() && "Unexpected VT");
+      assert(ConstNode->isZero() && "Capability constants must be NULL!");
+      SDValue New =
+          CurDAG->getCopyFromReg(CurDAG->getEntryNode(), DL, RISCV::X0_Y, VT);
+      ReplaceNode(Node, New.getNode());
+      return;
+    }
+    assert(VT == Subtarget->getXLenVT() && "Unexpected VT");
     if (ConstNode->isZero()) {
       SDValue New =
           CurDAG->getCopyFromReg(CurDAG->getEntryNode(), DL, RISCV::X0, VT);
