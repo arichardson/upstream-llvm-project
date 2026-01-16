@@ -7616,6 +7616,10 @@ SDValue SelectionDAG::FoldConstantArithmetic(unsigned Opcode, const SDLoc &DL,
     // opaque flag is preserved during folding to prevent future folding with
     // other constants.
     if (auto *C = dyn_cast<ConstantSDNode>(N1)) {
+      // For capability constants we currently only allow NULL, disable folding.
+      assert(VT.isInteger());
+      if (VT.isCheriCapability())
+        return SDValue();
       const APInt &Val = C->getAPIntValue();
       switch (Opcode) {
       case ISD::SIGN_EXTEND:
@@ -8335,15 +8339,18 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
   case ISD::ADD:
   case ISD::PTRADD:
   case ISD::SUB:
-    assert(VT.isInteger() && "This operator does not apply to FP types!");
-    assert(N1.getValueType() == N2.getValueType() &&
-           N1.getValueType() == VT && "Binary operator types must match!");
-    // The equal operand types requirement is unnecessarily strong for PTRADD.
-    // However, the SelectionDAGBuilder does not generate PTRADDs with different
-    // operand types, and we'd need to re-implement GEP's non-standard wrapping
-    // logic everywhere where PTRADDs may be folded or combined to properly
-    // support them. If/when we introduce pointer types to the SDAG, we will
-    // need to relax this constraint.
+    if (VT.isCheriCapability()) {
+      assert(Opcode == ISD::PTRADD &&
+             "This operator does not apply to capability types!");
+      assert(N2.getValueType().isInteger() &&
+             "Second PTRADD argument must be an integer type!");
+      assert(N1.getValueType().isVector() == N2.getValueType().isVector() &&
+             N1.getValueType() == VT && "Binary operator types must match!");
+    } else {
+      assert(VT.isInteger() && "This operator does not apply to FP types!");
+      assert(N1.getValueType() == N2.getValueType() &&
+             N1.getValueType() == VT && "Binary operator types must match!");
+    }
 
     // (X ^|+- 0) -> X.  This commonly occurs when legalizing i64 values, so
     // it's worth handling here.
@@ -9256,7 +9263,17 @@ static SDValue getMemsetStringVal(EVT VT, const SDLoc &dl, SelectionDAG &DAG,
 SDValue SelectionDAG::getMemBasePlusOffset(SDValue Base, TypeSize Offset,
                                            const SDLoc &DL,
                                            const SDNodeFlags Flags) {
-  SDValue Index = getTypeSize(DL, Base.getValueType(), Offset);
+  if (Offset.isZero())
+    return Base;
+
+  // For integer pointers the offset and pointer type must be identical
+  // (otherwise we assert later). For CHERI capabilities we use the index type
+  // which is the integer type with half the size.
+  EVT VT = Base.getValueType();
+  if (VT.isCheriCapability())
+    VT = VT.changeElementType(*Context,
+                              MVT::getIntegerVT(VT.getScalarSizeInBits() / 2));
+  SDValue Index = getTypeSize(DL, VT, Offset);
   return getMemBasePlusOffset(Base, Index, DL, Flags);
 }
 
