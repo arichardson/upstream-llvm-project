@@ -122,6 +122,9 @@ def YADDI : RVY_ri<0b100, "yaddi">;
 }
 def : InstAlias<"yadd $rd, $rs1, $imm12",
                 (YADDI YGPR:$rd, YGPR:$rs1, simm12_lo:$imm12), 0>;
+def : Pat<(ptradd YGPR:$rs1, XLenVT:$rs2), (ADDY YGPR:$rs1, GPR:$rs2)>;
+def : Pat<(ptradd YGPR:$rs1, (XLenVT (simm12_lo:$imm12))),
+          (ADDIY YGPR:$rs1, simm12_lo:$imm12)>;
 def YADDRW : RVY_rr<0b0001011, "yaddrw", YGPR, YGPR, GPR>;
 
 //
