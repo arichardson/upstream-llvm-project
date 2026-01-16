@@ -2724,8 +2724,8 @@ SDValue DAGCombiner::visitPTRADD(SDNode *N) {
 
   // This is already ensured by an assert in SelectionDAG::getNode(). Several
   // combines here depend on this assumption.
-  assert(IntVT.isInteger());
-  assert(PtrVT.isInteger() || PtrVT.isCheriCapability());
+  assert(PtrVT == IntVT &&
+         "PTRADD with different operand types is not supported");
 
   // fold (ptradd x, 0) -> x
   if (isNullConstant(N1))
@@ -2767,8 +2767,6 @@ SDValue DAGCombiner::visitPTRADD(SDNode *N) {
   // That is problematic for settings like AArch64's CPA, which checks that
   // intermediate results of pointer arithmetic remain in bounds. The target
   // therefore needs to opt-in to enable them.
-  // Similarly, CHERI capabilities become invalid if you go too far out of
-  // bounds, so for now we disable these transforms
   if (!TLI.canTransformPtrArithOutOfBounds(
           DAG.getMachineFunction().getFunction(), PtrVT))
     return SDValue();

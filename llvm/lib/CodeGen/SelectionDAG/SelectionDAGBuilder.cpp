@@ -4453,19 +4453,6 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
   auto &TLI = DAG.getTargetLoweringInfo();
   GEPNoWrapFlags NW = cast<GEPOperator>(I).getNoWrapFlags();
 
-  // IdxSize is the width of the arithmetic according to IR semantics.
-  // In SelectionDAG, we may prefer to do arithmetic in a wider bitwidth
-  // (and fix up the result later).
-  unsigned IdxSize = DAG.getDataLayout().getIndexSizeInBits(AS);
-  EVT IdxTy =
-      N.getValueType().changeElementType(*Context, MVT::getIntegerVT(IdxSize));
-  EVT OffsetVT = N.getValueType();
-
-  // For CHERI capabilities the PTRADD offset must match the index type of the
-  // corresponding IR pointer type.
-  if (OffsetVT.isCheriCapability())
-    OffsetVT = IdxTy;
-
   // For a vector GEP, keep the prefix scalar as long as possible, then
   // convert any scalars encountered after the first vector operand to vectors.
   bool IsVectorGEP = I.getType()->isVectorTy();
@@ -4491,9 +4478,15 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
           Flags |= SDNodeFlags::NoUnsignedWrap;
         Flags.setInBounds(NW.isInBounds());
 
-        N = DAG.getMemBasePlusOffset(N, TypeSize::getFixed(Offset), dl, Flags);
+        N = DAG.getMemBasePlusOffset(
+            N, DAG.getConstant(Offset, dl, N.getValueType()), dl, Flags);
       }
     } else {
+      // IdxSize is the width of the arithmetic according to IR semantics.
+      // In SelectionDAG, we may prefer to do arithmetic in a wider bitwidth
+      // (and fix up the result later).
+      unsigned IdxSize = DAG.getDataLayout().getIndexSizeInBits(AS);
+      MVT IdxTy = MVT::getIntegerVT(IdxSize);
       TypeSize ElementSize =
           GTI.getSequentialElementStride(DAG.getDataLayout());
       // We intentionally mask away the high bits here; ElementSize may not
@@ -4513,7 +4506,13 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
         continue;
       if (CI && !ElementScalable) {
         APInt Offs = ElementMul * CI->getValue().sextOrTrunc(IdxSize);
-        SDValue OffsVal = DAG.getConstant(Offs, dl, IdxTy);
+        LLVMContext &Context = *DAG.getContext();
+        SDValue OffsVal;
+        if (N.getValueType().isVector())
+          OffsVal = DAG.getConstant(
+              Offs, dl, EVT::getVectorVT(Context, IdxTy, VectorElementCount));
+        else
+          OffsVal = DAG.getConstant(Offs, dl, IdxTy);
 
         // In an inbounds GEP with an offset that is nonnegative even when
         // interpreted as signed, assume there is no unsigned overflow.
@@ -4523,8 +4522,7 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
           Flags.setNoUnsignedWrap(true);
         Flags.setInBounds(NW.isInBounds());
 
-        // TODO: Should the sign-extension happen inside getMemBasePlusOffset?
-        OffsVal = DAG.getSExtOrTrunc(OffsVal, dl, OffsetVT);
+        OffsVal = DAG.getSExtOrTrunc(OffsVal, dl, N.getValueType());
 
         N = DAG.getMemBasePlusOffset(N, OffsVal, dl, Flags);
         continue;
@@ -4534,7 +4532,6 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
       SDValue IdxN = getValue(Idx);
 
       if (IdxN.getValueType().isVector() != N.getValueType().isVector()) {
-        // IR had a scalar base or offset, convert base/offset now.
         if (N.getValueType().isVector()) {
           EVT VT = EVT::getVectorVT(*Context, IdxN.getValueType(),
                                     VectorElementCount);
@@ -4542,14 +4539,13 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
         } else {
           EVT VT =
               EVT::getVectorVT(*Context, N.getValueType(), VectorElementCount);
-          OffsetVT = VT.changeVectorElementType(*Context, OffsetVT);
           N = DAG.getSplat(VT, dl, N);
         }
       }
 
       // If the index is smaller or larger than intptr_t, truncate or extend
       // it.
-      IdxN = DAG.getSExtOrTrunc(IdxN, dl, OffsetVT);
+      IdxN = DAG.getSExtOrTrunc(IdxN, dl, N.getValueType());
 
       SDNodeFlags ScaleFlags;
       // The multiplication of an index by the type size does not wrap the
@@ -4561,13 +4557,14 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
       ScaleFlags.setNoUnsignedWrap(NW.hasNoUnsignedWrap());
 
       if (ElementScalable) {
-        EVT VScaleTy = OffsetVT.getScalarType();
+        EVT VScaleTy = N.getValueType().getScalarType();
         SDValue VScale = DAG.getNode(
             ISD::VSCALE, dl, VScaleTy,
             DAG.getConstant(ElementMul.getZExtValue(), dl, VScaleTy));
         if (N.getValueType().isVector())
-          VScale = DAG.getSplatVector(OffsetVT, dl, VScale);
-        IdxN = DAG.getNode(ISD::MUL, dl, OffsetVT, IdxN, VScale, ScaleFlags);
+          VScale = DAG.getSplatVector(N.getValueType(), dl, VScale);
+        IdxN = DAG.getNode(ISD::MUL, dl, N.getValueType(), IdxN, VScale,
+                           ScaleFlags);
       } else {
         // If this is a multiply by a power of two, turn it into a shl
         // immediately.  This is a very common case.
@@ -4575,13 +4572,14 @@ void SelectionDAGBuilder::visitGetElementPtr(const User &I) {
           if (ElementMul.isPowerOf2()) {
             unsigned Amt = ElementMul.logBase2();
             IdxN = DAG.getNode(
-                ISD::SHL, dl, OffsetVT, IdxN,
+                ISD::SHL, dl, N.getValueType(), IdxN,
                 DAG.getShiftAmountConstant(Amt, N.getValueType(), dl),
                 ScaleFlags);
           } else {
             SDValue Scale = DAG.getConstant(ElementMul.getZExtValue(), dl,
                                             IdxN.getValueType());
-            IdxN = DAG.getNode(ISD::MUL, dl, OffsetVT, IdxN, Scale, ScaleFlags);
+            IdxN = DAG.getNode(ISD::MUL, dl, N.getValueType(), IdxN, Scale,
+                               ScaleFlags);
           }
         }
       }

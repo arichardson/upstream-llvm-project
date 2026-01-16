@@ -236,10 +236,8 @@ namespace llvm {
       return isSimple() ? V.is2048BitVector() : isExtended2048BitVector();
     }
 
-    /// Return true if this is a capability or a capability vector type.
+    /// Return true if this is a capability type.
     bool isCheriCapability() const {
-      if (isVector())
-        return getScalarType().isCheriCapability();
       return isSimple() ? V.isCheriCapability() : false;
     }
 

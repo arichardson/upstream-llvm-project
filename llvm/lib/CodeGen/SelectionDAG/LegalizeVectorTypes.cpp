@@ -153,7 +153,6 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
     R = ScalarizeVecRes_UnaryOpWithTwoResults(N, ResNo);
     break;
   case ISD::ADD:
-  case ISD::PTRADD:
   case ISD::AND:
   case ISD::AVGCEILS:
   case ISD::AVGCEILU:
@@ -1514,7 +1513,6 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
     break;
 
   case ISD::ADD: case ISD::VP_ADD:
-  case ISD::PTRADD:
   case ISD::SUB: case ISD::VP_SUB:
   case ISD::MUL: case ISD::VP_MUL:
   case ISD::CLMUL:
