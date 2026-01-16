@@ -652,11 +652,6 @@ private:
 
   std::pair<const TargetRegisterClass *, uint8_t>
   findRepresentativeClass(const TargetRegisterInfo *TRI, MVT VT) const override;
-
-  bool shouldPreservePtrArith(const Function &F, EVT PtrVT) const override {
-    // We have to use ISD::PTRADD for capability operations instead of ADD.
-    return PtrVT.isCheriCapability();
-  }
 };
 
 namespace RISCVVIntrinsicsTable {
