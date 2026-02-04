@@ -800,6 +800,17 @@ Error RISCVISAInfo::checkDependency() {
     // Note: This is temporary, final frozen opcodes will not overlap.
     if (Exts.count("p") != 0)
       return getIncompatibleError("y", "p");
+    if (XLen == 32) {
+      // On RVY32 systems the zclsd/zcf encodings are used for y load/stores.
+      if (Exts.count("zclsd") != 0)
+        return getIncompatibleError("rv32y", "zclsd");
+      if (Exts.count("zcf") != 0)
+        return getIncompatibleError("rv32y", "zcf");
+    } else {
+      // On RVY64 systems the zcd encodings are used for y load/stores.
+      if (Exts.count("zcd") != 0)
+        return getIncompatibleError("rv64y", "zcd");
+    }
   }
 
   if (HasZcmp && HasXqccmp)
@@ -855,21 +866,23 @@ void RISCVISAInfo::updateImplication() {
     }
   }
 
-  // Add Zcd if C and D are enabled.
-  if (Exts.count("c") && Exts.count("d") && !Exts.count("zcd")) {
+  // Add Zcd if C and D are enabled and we aren't targeting 64-bit RVY.
+  if (Exts.count("c") && Exts.count("d") && !Exts.count("zcd") &&
+      (XLen == 32 || !Exts.count("y"))) {
     auto Version = findDefaultVersion("zcd");
     Exts["zcd"] = *Version;
   }
 
-  // Add Zcf if C and F are enabled on RV32.
-  if (XLen == 32 && Exts.count("c") && Exts.count("f") && !Exts.count("zcf")) {
+  // Add Zcf if C and F are enabled on RV32 and Y is not enabled.
+  if (XLen == 32 && Exts.count("c") && Exts.count("f") && !Exts.count("zcf") &&
+      !Exts.count("y")) {
     auto Version = findDefaultVersion("zcf");
     Exts["zcf"] = *Version;
   }
 
-  // Add Zcf if Zce and F are enabled on RV32.
+  // Add Zcf if Zce and F are enabled on RV32 and Y is not enabled.
   if (XLen == 32 && Exts.count("zce") && Exts.count("f") &&
-      !Exts.count("zcf")) {
+      !Exts.count("zcf") && !Exts.count("y")) {
     auto Version = findDefaultVersion("zcf");
     Exts["zcf"] = *Version;
   }
@@ -884,18 +897,24 @@ void RISCVISAInfo::updateImplication() {
   // For RV64:
   //   - No D: Zca alone implies C
   //   - D: Zca + Zcd implies C
+  // For RV32Y (Zcf incompatible):
+  //   - No D (but maybe F): Zca alone implies C
+  //   - F and D: Zca + Zcd implies C
+  // For RV64Y (Zcf and Zcd incompatible):
+  //   - Zca alone implies C
   if (Exts.count("zca") && !Exts.count("c")) {
     bool ShouldAddC = false;
     if (XLen == 32) {
       if (Exts.count("d"))
-        ShouldAddC = Exts.count("zcf") && Exts.count("zcd");
+        ShouldAddC =
+            Exts.count("zcd") && (Exts.count("y") || Exts.count("zcf"));
       else if (Exts.count("f"))
-        ShouldAddC = Exts.count("zcf");
+        ShouldAddC = Exts.count("y") || Exts.count("zcf");
       else
         ShouldAddC = true;
     } else if (XLen == 64) {
       if (Exts.count("d"))
-        ShouldAddC = Exts.count("zcd");
+        ShouldAddC = Exts.count("y") || Exts.count("zcd");
       else
         ShouldAddC = true;
     }
@@ -905,13 +924,16 @@ void RISCVISAInfo::updateImplication() {
     }
   }
 
-  if (!Exts.count("zce") && Exts.count("zca") && Exts.count("zcb") &&
-      Exts.count("zcmp") && Exts.count("zcmt")) {
+  if (!Exts.count("zce") && Exts.count("zca") && Exts.count("zcb")) {
     bool ShouldAddZce = false;
-    if (XLen == 32) {
-      ShouldAddZce = !Exts.count("f") || Exts.count("zcf");
-    } else if (XLen == 64) {
-      ShouldAddZce = true;
+    if (Exts.count("zcmp") && Exts.count("zcmt")) {
+      if (XLen == 32) {
+        ShouldAddZce = !Exts.count("f") || Exts.count("zcf") || Exts.count("y");
+      } else if (XLen == 64) {
+        ShouldAddZce = true;
+      }
+    } else if (Exts.count("y") && XLen == 64) {
+      ShouldAddZce = true; // For RV64Y only Zce only includes Zca and Zcb
     }
     if (ShouldAddZce)
       Exts["zce"] = *findDefaultVersion("zce");
