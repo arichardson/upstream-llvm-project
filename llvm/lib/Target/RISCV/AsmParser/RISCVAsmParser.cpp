@@ -90,7 +90,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
            !STI->hasFeature(RISCV::FeatureVendorXLLVMRVYIPM);
   }
   unsigned getPtrAddiOpcode() const {
-    return isRVYCapMode() ? RISCV::ADDIY : RISCV::ADDI;
+    return isRVYCapMode() ? RISCV::YADDI : RISCV::ADDI;
   }
   unsigned getPtrLoadOpcode() const {
     if (isRVYCapMode())
@@ -3808,10 +3808,21 @@ void RISCVAsmParser::emitLoadStoreSymbol(MCInst &Inst, unsigned Opcode,
   MCRegister TmpReg = Inst.getOperand(0).getReg();
 
   // If TmpReg is a GPR pair, get the even register.
+  const MCRegisterInfo *RI = getContext().getRegisterInfo();
   if (RISCVMCRegisterClasses[RISCV::GPRPairRegClassID].contains(TmpReg)) {
-    const MCRegisterInfo *RI = getContext().getRegisterInfo();
     TmpReg = RI->getSubReg(TmpReg, RISCV::sub_gpr_even);
   }
+  // The temporary register must be in the pointer register class which
+  // depends on capability mode
+  // TODO: reject register zero since that is not valid for auipc destination.
+  if (isRVYCapMode() &&
+      RISCVMCRegisterClasses[RISCV::GPRRegClassID].contains(TmpReg))
+    TmpReg =
+        RI->getMatchingSuperReg(TmpReg, RISCV::sub_cap_addr,
+                                &RISCVMCRegisterClasses[RISCV::YGPRRegClassID]);
+  else if (!isRVYCapMode() &&
+           RISCVMCRegisterClasses[RISCV::YGPRRegClassID].contains(TmpReg))
+    TmpReg = RI->getSubReg(TmpReg, RISCV::sub_cap_addr);
 
   const MCExpr *Symbol = Inst.getOperand(SymbolOpIdx).getExpr();
   emitAuipcInstPair(DestReg, TmpReg, Symbol, RISCV::S_PCREL_HI, Opcode, IDLoc,
@@ -4308,6 +4319,9 @@ bool RISCVAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
   case RISCV::PseudoLD_RV32:
     emitLoadStoreSymbol(Inst, RISCV::LD_RV32, IDLoc, Out, /*HasTmpReg=*/false);
     return false;
+  case RISCV::PseudoLY:
+    emitLoadStoreSymbol(Inst, RISCV::LY, IDLoc, Out, /*HasTmpReg=*/false);
+    return false;
   case RISCV::PseudoFLH:
     emitLoadStoreSymbol(Inst, RISCV::FLH, IDLoc, Out, /*HasTmpReg=*/true);
     return false;
@@ -4334,6 +4348,9 @@ bool RISCVAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
     return false;
   case RISCV::PseudoSD:
     emitLoadStoreSymbol(Inst, RISCV::SD, IDLoc, Out, /*HasTmpReg=*/true);
+    return false;
+  case RISCV::PseudoSY:
+    emitLoadStoreSymbol(Inst, RISCV::SY, IDLoc, Out, /*HasTmpReg=*/true);
     return false;
   case RISCV::PseudoSD_RV32:
     emitLoadStoreSymbol(Inst, RISCV::SD_RV32, IDLoc, Out, /*HasTmpReg=*/true);
