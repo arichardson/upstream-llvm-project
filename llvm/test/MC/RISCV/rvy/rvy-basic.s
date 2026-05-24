@@ -1,11 +1,11 @@
 // RUN: llvm-mc --triple=riscv32 -mattr=+experimental-y --riscv-no-aliases --show-encoding --show-inst --defsym=XLEN=32 < %s \
-// RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-32,CHECK-32 -D"#XLEN=32" %s
+// RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-32,CHECK-32 %s
 // RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-y --defsym=XLEN=32 --riscv-add-build-attributes < %s \
-// RUN:   | llvm-objdump --mattr=+experimental-y -M no-aliases -d --no-print-imm-hex - | FileCheck %s -D"#XLEN=32" --check-prefixes=CHECK,CHECK-32
+// RUN:   | llvm-objdump --mattr=+experimental-y -M no-aliases -d --no-print-imm-hex - | FileCheck %s --check-prefixes=CHECK,CHECK-32
 // RUN: llvm-mc --triple=riscv64 --mattr=+experimental-y --riscv-no-aliases --show-encoding --show-inst --defsym=XLEN=64 < %s \
-// RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-64,CHECK-64 -D"#XLEN=64" %s
+// RUN:   | FileCheck --check-prefixes=CHECK,CHECK-ASM,CHECK-ASM-64,CHECK-64 %s
 // RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-y --defsym=XLEN=64 --riscv-add-build-attributes < %s \
-// RUN:   | llvm-objdump --mattr=+experimental-y -M no-aliases -d --no-print-imm-hex - | FileCheck %s -D"#XLEN=64" --check-prefixes=CHECK,CHECK-64
+// RUN:   | llvm-objdump --mattr=+experimental-y -M no-aliases -d --no-print-imm-hex - | FileCheck %s --check-prefixes=CHECK,CHECK-64
 
 // CHECK: addy		a0, a0, a1
 // CHECK-ASM-SAME: # encoding: [0x33,0x05,0xb5,0x0c]
@@ -192,20 +192,26 @@ ypermr a0, a0
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ytyper a0, a0
-// CHECK-NEXT: srliy		a0, a0, [[#XLEN]]
+// CHECK-32-NEXT: srliy		a0, a0, 32
+// CHECK-64-NEXT: srliy		a0, a0, 64
 // CHECK-ASM-64-SAME: # encoding: [0x13,0x55,0x05,0x04]
-// CHECK-ASM-NEXT: # <MCInst #[[#]] SRLIY[[#XLEN]]{{$}}
+// CHECK-ASM-32-NEXT: # <MCInst #[[#]] SRLIY32{{$}}
+// CHECK-ASM-64-NEXT: # <MCInst #[[#]] SRLIY64{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
-// CHECK-ASM-NEXT: #  <MCOperand Imm:[[#XLEN]]>>
+// CHECK-ASM-32-NEXT: #  <MCOperand Imm:32>>
+// CHECK-ASM-64-NEXT: #  <MCOperand Imm:64>>
 srliy a0, a0, XLEN
-// CHECK-NEXT: srliy		a0, a0, [[#XLEN]]
+// CHECK-32-NEXT: srliy		a0, a0, 32
+// CHECK-64-NEXT: srliy		a0, a0, 64
 // CHECK-ASM-32-SAME: # encoding: [0x13,0x55,0x05,0x02]
 // CHECK-ASM-64-SAME: # encoding: [0x13,0x55,0x05,0x04]
-// CHECK-ASM-NEXT: # <MCInst #[[#]] SRLIY[[#XLEN]]{{$}}
+// CHECK-ASM-32-NEXT: # <MCInst #[[#]] SRLIY32{{$}}
+// CHECK-ASM-64-NEXT: # <MCInst #[[#]] SRLIY64{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
-// CHECK-ASM-NEXT: #  <MCOperand Imm:[[#XLEN]]>>
+// CHECK-ASM-32-NEXT: #  <MCOperand Imm:32>>
+// CHECK-ASM-64-NEXT: #  <MCOperand Imm:64>>
 yhir a0, a0
 // CHECK-NEXT: syeq		a0, a0, a0
 // CHECK-ASM-SAME: # encoding: [0x33,0x45,0xa5,0x0c]
