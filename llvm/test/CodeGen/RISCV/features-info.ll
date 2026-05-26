@@ -53,6 +53,7 @@
 ; CHECK-NEXT:   experimental-zvvmtls             - 'Zvvmtls' (Matrix Tile Load/Store).
 ; CHECK-NEXT:   experimental-zvvmttls            - 'Zvvmttls' (Transposing Matrix Tile Load/Store).
 ; CHECK-NEXT:   experimental-zvzip               - 'Zvzip' (Vector Reordering Structured Data).
+; CHECK-NEXT:   experimental-zyhybrid            - 'Zyhybrid' (RVY hybrid support).
 ; CHECK-NEXT:   f                                - 'F' (Single-Precision Floating-Point).
 ; CHECK-NEXT:   forced-atomics                   - Assume that lock-free native-width atomics are available.
 ; CHECK-NEXT:   fusion-add-load                  - Enable ADD(.UW) + load macrofusion.

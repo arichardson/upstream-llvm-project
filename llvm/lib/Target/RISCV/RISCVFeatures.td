@@ -1247,6 +1247,14 @@ def HasStdExtZbkbOrP
 def FeatureStdExtY : RISCVExperimentalExtension<0, 98, "'Base Y' (CHERI)">;
 def HasStdExtY : Predicate<"Subtarget->hasStdExtY()">,
                  AssemblerPredicate<(all_of FeatureStdExtY), "'Base Y' (CHERI)">;
+// The Zyhbrid extension adds new instructions to dynamically enable RVI
+// compatibility mode while the base ISA is RVY (i.e. toggle between using
+// integers or capabilities for all pointers).
+def FeatureStdExtZyhybrid
+    : RISCVExperimentalExtension<0, 98, "RVY hybrid support", [FeatureStdExtY]>;
+def HasStdExtZyhybrid
+    : Predicate<"Subtarget->hasStdExtZyhybrid()">,
+      AssemblerPredicate<(all_of FeatureStdExtZyhybrid), "CHERI hybrid support">;
 
 //===----------------------------------------------------------------------===//
 // Vendor extensions

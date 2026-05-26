@@ -1638,6 +1638,7 @@ Experimental extensions
     zvvmtls              0.1
     zvvmttls             0.1
     zvzip                0.1
+    zyhybrid             0.98
     smpmpmt              0.6
     svukte               0.3
     xqccmt               0.1

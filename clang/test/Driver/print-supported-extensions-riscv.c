@@ -269,6 +269,7 @@
 // CHECK-NEXT:     zvvmtls              0.1       'Zvvmtls' (Matrix Tile Load/Store)
 // CHECK-NEXT:     zvvmttls             0.1       'Zvvmttls' (Transposing Matrix Tile Load/Store)
 // CHECK-NEXT:     zvzip                0.1       'Zvzip' (Vector Reordering Structured Data)
+// CHECK-NEXT:     zyhybrid             0.98      'Zyhybrid' (RVY hybrid support)
 // CHECK-NEXT:     smpmpmt              0.6       'Smpmpmt' (PMP-based Memory Types Extension)
 // CHECK-NEXT:     svukte               0.3       'Svukte' (Address-Independent Latency of User-Mode Faults to Supervisor Addresses)
 // CHECK-NEXT:     xqccmt               0.1       'Xqccmt' (Qualcomm 16-bit Table Jump)
