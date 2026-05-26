@@ -95,6 +95,8 @@ static DecodeStatus DecodeSimpleRegisterClass(MCInst &Inst, uint32_t RegNo,
 
 constexpr auto DecodeGPRRegisterClass =
     DecodeSimpleRegisterClass<RISCV::X0, 32, /*RVELimit=*/16>;
+constexpr auto DecodeYGPRRegisterClass =
+    DecodeSimpleRegisterClass<RISCV::X0_Y, 32, /*RVELimit=*/16>;
 
 static DecodeStatus DecodeGPRX1X5RegisterClass(MCInst &Inst, uint32_t RegNo,
                                                uint64_t Address,
@@ -148,6 +150,8 @@ constexpr bool PredNoX31(uint32_t RegNo) { return RegNo != 31; }
 
 constexpr auto DecodeGPRNoX0RegisterClass =
     DecodeFilteredRegisterClass<DecodeGPRRegisterClass, PredNoX0>;
+constexpr auto DecodeYGPRNoX0RegisterClass =
+    DecodeFilteredRegisterClass<DecodeYGPRRegisterClass, PredNoX0>;
 constexpr auto DecodeGPRNoX2RegisterClass =
     DecodeFilteredRegisterClass<DecodeGPRRegisterClass, PredNoX2>;
 constexpr auto DecodeGPRNoX31RegisterClass =

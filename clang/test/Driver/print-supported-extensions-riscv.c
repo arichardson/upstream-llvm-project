@@ -257,6 +257,7 @@
 // CHECK-NEXT:     zvvfmm               0.1       'Zvvfmm' (Floating-Point Matrix Multiply-Accumulate)
 // CHECK-NEXT:     zvvmm                0.1       'Zvvmm' (Integer Matrix Multiply-Accumulate)
 // CHECK-NEXT:     zvzip                0.1       'Zvzip' (Vector Reordering Structured Data)
+// CHECK-NEXT:     zyhybrid             0.98      'Zyhybrid' (RVY hybrid support)
 // CHECK-NEXT:     smpmpmt              0.6       'Smpmpmt' (PMP-based Memory Types Extension)
 // CHECK-NEXT:     svukte               0.3       'Svukte' (Address-Independent Latency of User-Mode Faults to Supervisor Addresses)
 // CHECK-NEXT:     xqccmt               0.1       'Xqccmt' (Qualcomm 16-bit Table Jump)

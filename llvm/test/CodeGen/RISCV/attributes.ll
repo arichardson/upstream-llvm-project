@@ -310,6 +310,7 @@
 ; RUN: llc -mtriple=riscv64 -mattr=+sdtrig  %s -o - | FileCheck --check-prefix=RV64SDTRIG %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-p %s -o - | FileCheck --check-prefix=RV64P %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-y %s -o - | FileCheck --check-prefix=RV64Y %s
+; RUN: llc -mtriple=riscv64 -mattr=+experimental-zyhybrid %s -o - | FileCheck --check-prefix=RV64Y-ZYHYBRID %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zibi %s -o - | FileCheck --check-prefix=RV64ZIBI %s
 
 
@@ -635,6 +636,7 @@
 ; RV64SDTRIG: .attribute 5, "rv64i2p1_sdtrig1p0"
 ; RV64P: .attribute 5, "rv64i2p1_p0p21_zicsr2p0_zmmul1p0_zba1p0_zbb1p0"
 ; RV64Y: .attribute 5, "rv64i2p1_y0p98"
+; RV64Y-ZYHYBRID: .attribute 5, "rv64i2p1_y0p98_zyhybrid0p98"
 ; RV64ZIBI: .attribute 5, "rv64i2p1_zibi0p1"
 
 ; RVI20U32: .attribute 5, "rv32i2p1"

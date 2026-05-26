@@ -1379,7 +1379,9 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
       RISCVMCRegisterClasses[RISCV::FPR64CRegClassID].contains(Reg);
   bool IsRegVR = RISCVMCRegisterClasses[RISCV::VRRegClassID].contains(Reg);
 
-  if (Op.isGPR() && Kind == MCK_YGPR) {
+  if (Op.isGPR() && (Kind == MCK_YGPR || Kind == MCK_YGPRNoX0)) {
+    if (Kind == MCK_YGPRNoX0 && Reg == RISCV::X0)
+      return Match_InvalidRegClassYGPRNoX0;
     // GPR and capability GPR use the same register names, convert if required.
     Op.Reg.Reg = convertGPRToYGPR(Reg);
     return Match_Success;
