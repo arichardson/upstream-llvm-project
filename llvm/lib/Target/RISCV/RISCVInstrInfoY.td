@@ -25,9 +25,7 @@ def YBNDSWImmOperand : AsmOperandClass {
 }
 
 def ybndsw_imm : Operand<XLenVT>, ImmLeaf<XLenVT, [{
-  return (Imm >= 1 && Imm <= 256) ||
-         (Imm > 256 && Imm <= 512 && (Imm % 8) == 0) ||
-         (Imm > 512 && Imm <= 4096 && (Imm % 16) == 0);
+  return llvm::RISCV::isValidYBNDSWImm(Imm);
 }]> {
   let EncoderMethod = "getYBNDSWImmOpValue";
   let ParserMatchClass = YBNDSWImmOperand;
@@ -77,12 +75,10 @@ class RVYInst2Op<bits<7> funct7, bits<5> funct5, DAGOperand rdOp,
   let Inst{6-0} = OPC_RVY_A.Value;
 }
 
-class RVY_r_xy<bits<5> funct5, string opcodestr>
-    : RVYInst2Op<0b1111010, funct5, GPR, YGPR, opcodestr, "$rd, $rs1">;
-class RVY_r_yy<bits<5> funct5, string opcodestr>
-    : RVYInst2Op<0b1111011, funct5, YGPR, YGPR, opcodestr, "$rd, $rs1">;
 class RVY_r_xx<bits<5> funct5, string opcodestr>
     : RVYInst2Op<0b1111000, funct5, GPR, GPR, opcodestr, "$rd, $rs1">;
+class RVY_r_xy<bits<5> funct5, string opcodestr>
+    : RVYInst2Op<0b1111010, funct5, GPR, YGPR, opcodestr, "$rd, $rs1">;
 class RVY_ri<bits<3> funct3, string opcodestr, DAGOperand rdOp = YGPR,
              DAGOperand rs1Op = YGPR>
     : RVInstI<funct3, OPC_RVY_A, (outs rdOp:$rd),
@@ -116,7 +112,7 @@ let Predicates = [HasStdExtY] in {
 //
 let isReMaterializable = true, isAsCheapAsAMove = true in {
 def YADD : RVY_rr<0b0000011, "yadd", YGPR, YGPR, GPRNoX0>;
-def YADDI : RVY_ri<0b001, "yaddi">;
+def YADDI : RVY_ri<0b100, "yaddi">;
 }
 def : InstAlias<"yadd $rd, $rs1, $imm12",
                 (YADDI YGPR:$rd, YGPR:$rs1, simm12_lo:$imm12), 0>;
@@ -152,10 +148,10 @@ def YTOPR : RVY_r_xy<0b00010, "ytopr">;
 def YTAGR : RVY_r_xy<0b00100, "ytagr">;
 def YPERMR : RVY_r_xy<0b00001, "ypermr">;
 def YTYPER : RVY_r_xy<0b00101, "ytyper">;
-// Extracting the high bits of capabilities is encoded as a XLEN-bit right shift
-// of YLEN operands (but the RVY specification only defines the XLEN-wide shifts
-// and reserves other values for a future extension). YHIR is a pseudo that
-// expands to the correct shift value depending on RV32/RV64.
+// Extracting the high bits of capabilities is effectively a XLEN-bit right
+// shift. It is encoded this way so that a future "YLEN arithmetic" extension
+// can define shifts with arbitrary shift amounts. YHIR is a pseudo that expands
+// to the XLEN-wide shift value depending on RV32/RV64.
 def SRLIY : RVY_srli<"srliy">;
 let Predicates = [HasStdExtY, IsRV64] in {
 def : InstAlias<"yhir $rd, $rs1", (SRLIY GPR:$rd, YGPR:$rs1, 64)>;

@@ -827,19 +827,7 @@ public:
     bool IsConstantImm = evaluateConstantExpr(getExpr(), Imm);
     if (!IsConstantImm)
       return false;
-    // The immediate is encoded using `((imm[7:0] + 257) << imm[9:8]) - 256`
-    // which gives the following valid ranges:
-    if (Imm < 1)
-      return false;
-    if (Imm <= 256)
-      return true;
-    if (Imm <= 768)
-      return (Imm % 2) == 0;
-    if (Imm <= 1792)
-      return (Imm % 4) == 0;
-    if (Imm <= 3840)
-      return (Imm % 8) == 0;
-    return false;
+    return RISCV::isValidYBNDSWImm(Imm);
   }
 
   template <class Pred> bool isSImmPred(Pred p) const {
@@ -1783,9 +1771,8 @@ bool RISCVAsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   case Match_InvalidYBNDSWImm: {
     const SMLoc ErrorLoc = ((RISCVOperand &)*Operands[ErrorInfo]).getStartLoc();
     return Error(ErrorLoc, "immediate must be an integer in the range "
-                           "[1, 256], a multiple of 2 in the range [258, 768], "
-                           "a multiple of 4 in the range [772, 1792], or "
-                           "a multiple of 8 in the range [1800, 3840]");
+                           "[1, 255], a multiple of 8 in the range [256, 508], "
+                           "or a multiple of 16 in the range [512, 4096]");
   }
   case Match_InvalidUImm7Srliy: {
     const SMLoc ErrorLoc = ((RISCVOperand &)*Operands[ErrorInfo]).getStartLoc();

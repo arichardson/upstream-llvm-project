@@ -767,23 +767,27 @@ RISCVMCCodeEmitter::getYBNDSWImmOpValue(const MCInst &MI, unsigned OpNo,
                                         SmallVectorImpl<MCFixup> &Fixups,
                                         const MCSubtargetInfo &STI) const {
   unsigned Imm = getImmOpValue(MI, OpNo, Fixups, STI);
-  // The 10-bit immediate is encoded as `((imm[7:0] + 257) << imm[9:8]) - 256`.
-  if (Imm <= 256) {
-    assert(Imm > 0); // 1, 2, ..., 255, 256
-    return Imm - 1;
+  assert(RISCV::isValidYBNDSWImm(Imm) && "Should have been checked before");
+  // YBNDSWI decodes to the requested length result as follows:
+  // If imm[8:0] == 0, result is 4096.
+  if (Imm == 4096)
+    return 0;
+  // If imm[8] == 0 and imm[7:0] != 0, result is imm[7:0] (1, 2, ..., 255).
+  if (Imm > 0 && Imm <= 255)
+    return Imm;
+  // If imm[8] == 1 and imm[7:5] == 0, result is
+  //   `256 | (imm[3:0] << 4) | (imm[4] << 3)` (256, 264, ..., 504).
+  if (Imm >= 256 && Imm <= 504 && (Imm % 8) == 0) {
+    // Encode the multiples of 8 in this range in odd-even buckets, setting bit
+    // 4 of the immediate to 1 for odd multiples of 8.
+    unsigned MultipleOf8 = (Imm - 256) >> 3;
+    unsigned OddMultiple = MultipleOf8 & 1;
+    unsigned Bits3To0 = MultipleOf8 >> 1;
+    return 256 | (OddMultiple << 4) | Bits3To0;
   }
-  if (Imm <= 768) {
-    assert(Imm % 2 == 0); // 258, 260, ..., 766, 768
-    return ((Imm - 258) >> 1) | (1 << 8);
-  }
-  if (Imm <= 1792) {
-    assert(Imm % 4 == 0); // 772, 776, ..., 1788, 1792
-    return ((Imm - 772) >> 2) | (2 << 8);
-  }
-  if (Imm <= 3840) {
-    assert(Imm % 8 == 0); // 1800, 1808, ..., 3832, 3840
-    return ((Imm - 1800) >> 3) | (3 << 8);
-  }
+  // Otherwise, result is imm[7:0] << 4 (512, 528, ... 4080).
+  if (Imm >= 512 && Imm <= 4080 && (Imm % 16) == 0)
+    return 256 | (Imm >> 4);
   llvm_unreachable("Invalid immediate for YBNDSWI");
 }
 

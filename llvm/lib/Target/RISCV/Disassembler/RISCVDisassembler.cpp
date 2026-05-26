@@ -241,9 +241,25 @@ static DecodeStatus DecodeTRM4RegisterClass(MCInst &Inst, uint32_t RegNo,
 
 static DecodeStatus DecodeYBNDSWImm(MCInst &Inst, uint64_t Imm, int64_t Address,
                                     const MCDisassembler *Decoder) {
-  assert(isUInt<10>(Imm) && "Invalid immediate");
-  const uint32_t Shift = Imm >> 8;
-  uint64_t Result = (((Imm & maxUIntN(8)) + 257) << Shift) - 256;
+  assert(isUInt<9>(Imm) && "Invalid immediate");
+  uint64_t Result;
+  if (Imm == 0) {
+    // If imm[8:0] == 0, result is 4096.
+    Result = 4096;
+  } else if (Imm <= 255) {
+    // If imm[8] == 0 and imm[7:0] != 0, result is imm[7:0].
+    Result = Imm;
+  } else {
+    uint64_t Imm7To5 = (Imm & 0xFF) >> 5;
+    if (Imm7To5 == 0) {
+      // If imm[8] == 1 and imm[7:5] == 0, result is
+      // `256 | (imm[3:0] << 4) | (imm[4] << 3)`.
+      Result = 256 + ((Imm & 0xF) << 4) + (((Imm >> 4) & 1) << 3);
+    } else {
+      // Otherwise, result is imm[7:0] << 4.
+      Result = Imm7To5 << 4;
+    }
+  }
   Inst.addOperand(MCOperand::createImm(Result));
   return MCDisassembler::Success;
 }

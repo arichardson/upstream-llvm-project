@@ -889,6 +889,12 @@ struct NDSVLNPseudo {
 #define GET_RISCVVSXTable_DECL
 #define GET_RISCVNDSVLNTable_DECL
 #include "RISCVGenSearchableTables.inc"
+
+inline bool isValidYBNDSWImm(int64_t Imm) {
+  return (Imm >= 1 && Imm <= 255) ||
+         (Imm >= 256 && Imm <= 508 && (Imm % 8) == 0) ||
+         (Imm >= 512 && Imm <= 4096 && (Imm % 16) == 0);
+}
 } // namespace RISCV
 
 } // namespace llvm
