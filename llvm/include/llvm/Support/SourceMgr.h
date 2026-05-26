@@ -65,11 +65,14 @@ private:
     /// dynamically based on the size of Buffer.
     mutable void *OffsetCache = nullptr;
 
-    /// Look up a given \p Ptr in the buffer, determining which line it came
-    /// from.
-    LLVM_ABI unsigned getLineNumber(const char *Ptr) const;
+    /// Look up a given \p Ptr in the buffer, determining which line and column
+    /// it came from. This method has O(log n) complexity, where n is the number
+    /// of lines in the buffer.
+    LLVM_ABI std::pair<unsigned, unsigned>
+    getLineAndColumn(const char *Ptr) const;
     template <typename T>
-    unsigned getLineNumberSpecialized(const char *Ptr) const;
+    std::pair<unsigned, unsigned>
+    getLineAndColumnSpecialized(const char *Ptr) const;
 
     /// Return a pointer to the first character of the specified line number or
     /// null if the line number is invalid.
@@ -78,7 +81,11 @@ private:
     const char *getPointerForLineNumberSpecialized(unsigned LineNo) const;
 
     /// This is the location of the parent include, or null if at the top level.
+    /// For macro instantiation buffers, this is the macro call location.
     SMLoc IncludeLoc;
+
+    /// The location in the parent buffer where this macro was defined.
+    SMLoc MacroDefLoc;
 
     SrcBuffer() = default;
     LLVM_ABI SrcBuffer(SrcBuffer &&);
@@ -106,14 +113,14 @@ public:
   LLVM_ABI SourceMgr();
   /// Create new source manager with the capability of finding include files
   /// via the provided file system.
-  explicit SourceMgr(IntrusiveRefCntPtr<vfs::FileSystem> FS);
+  LLVM_ABI explicit SourceMgr(IntrusiveRefCntPtr<vfs::FileSystem> FS);
   SourceMgr(const SourceMgr &) = delete;
   SourceMgr &operator=(const SourceMgr &) = delete;
-  SourceMgr(SourceMgr &&);
-  SourceMgr &operator=(SourceMgr &&);
+  LLVM_ABI SourceMgr(SourceMgr &&);
+  LLVM_ABI SourceMgr &operator=(SourceMgr &&);
   LLVM_ABI ~SourceMgr();
 
-  IntrusiveRefCntPtr<vfs::FileSystem> getVirtualFileSystem() const;
+  LLVM_ABI IntrusiveRefCntPtr<vfs::FileSystem> getVirtualFileSystem() const;
   LLVM_ABI void setVirtualFileSystem(IntrusiveRefCntPtr<vfs::FileSystem> FS);
 
   /// Return the include directories of this source manager.
@@ -155,6 +162,23 @@ public:
     return Buffers[i - 1].IncludeLoc;
   }
 
+  unsigned getMacroParentBuf(unsigned i) const {
+    if (SMLoc Loc = getMacroDefLoc(i); Loc.isValid())
+      return FindBufferContainingLoc(getParentIncludeLoc(i));
+    return 0;
+  }
+
+  SMLoc getMacroDefLoc(unsigned i) const {
+    assert(isValidBufferID(i));
+    return Buffers[i - 1].MacroDefLoc;
+  }
+
+  unsigned getMacroDefBuf(unsigned i) const {
+    if (SMLoc Loc = getMacroDefLoc(i); Loc.isValid())
+      return FindBufferContainingLoc(Loc);
+    return 0;
+  }
+
   /// Add a new source buffer to this source manager. This takes ownership of
   /// the memory buffer.
   unsigned AddNewSourceBuffer(std::unique_ptr<MemoryBuffer> F,
@@ -162,6 +186,16 @@ public:
     SrcBuffer NB;
     NB.Buffer = std::move(F);
     NB.IncludeLoc = IncludeLoc;
+    Buffers.push_back(std::move(NB));
+    return Buffers.size();
+  }
+
+  unsigned AddMacroInstantiationBuffer(std::unique_ptr<MemoryBuffer> F,
+                                       SMLoc SpellingLoc, SMLoc CallLoc) {
+    SrcBuffer NB;
+    NB.Buffer = std::move(F);
+    NB.IncludeLoc = CallLoc;
+    NB.MacroDefLoc = SpellingLoc;
     Buffers.push_back(std::move(NB));
     return Buffers.size();
   }
@@ -200,7 +234,8 @@ public:
   /// buffer of the stacked file. The full path to the included file can be
   /// found in \p IncludedFile.
   LLVM_ABI ErrorOr<std::unique_ptr<MemoryBuffer>>
-  OpenIncludeFile(const std::string &Filename, std::string &IncludedFile);
+  OpenIncludeFile(const std::string &Filename, std::string &IncludedFile,
+                  bool RequiresNullTerminator = true);
 
   /// Return the ID of the buffer containing the specified location.
   ///
@@ -208,13 +243,15 @@ public:
   LLVM_ABI unsigned FindBufferContainingLoc(SMLoc Loc) const;
 
   /// Find the line number for the specified location in the specified file.
-  /// This is not a fast method.
+  /// This method has O(log n) complexity, where n is the number of lines in the
+  /// buffer.
   unsigned FindLineNumber(SMLoc Loc, unsigned BufferID = 0) const {
     return getLineAndColumn(Loc, BufferID).first;
   }
 
   /// Find the line and column number for the specified location in the
-  /// specified file. This is not a fast method.
+  /// specified file. This method has O(log n) complexity, where n is the number
+  /// of lines in the buffer.
   LLVM_ABI std::pair<unsigned, unsigned>
   getLineAndColumn(SMLoc Loc, unsigned BufferID = 0) const;
 
@@ -226,7 +263,7 @@ public:
   /// Given a line and column number in a mapped buffer, turn it into an SMLoc.
   /// This will return a null SMLoc if the line/column location is invalid.
   LLVM_ABI SMLoc FindLocForLineAndColumn(unsigned BufferID, unsigned LineNo,
-                                         unsigned ColNo);
+                                         unsigned ColNo) const;
 
   /// Emit a message about the specified location with the specified string.
   ///
@@ -266,6 +303,15 @@ public:
   /// \param IncludeLoc The location of the include.
   /// \param OS the raw_ostream to print on.
   LLVM_ABI void PrintIncludeStack(SMLoc IncludeLoc, raw_ostream &OS) const;
+
+  /// Prints the include stack of a buffer unless it is a macro instantiation
+  /// buffer.
+  LLVM_ABI void printIncludeStackForDiagnostic(SMLoc Loc,
+                                               raw_ostream &OS) const;
+
+  /// Map a virtual macro instantiation location back to the physical
+  /// definition/signature location of the macro it was called from.
+  LLVM_ABI SMLoc getMacroInstantiationLoc(SMLoc Loc) const;
 };
 
 /// Represents a single fixit, a replacement of one range of text with another.

@@ -54,6 +54,10 @@ Type *Type::getPrimitiveType(LLVMContext &C, TypeID IDNumber) {
   }
 }
 
+bool Type::isByteTy(unsigned BitWidth) const {
+  return isByteTy() && cast<ByteType>(this)->getBitWidth() == BitWidth;
+}
+
 bool Type::isIntegerTy(unsigned Bitwidth) const {
   return isIntegerTy() && cast<IntegerType>(this)->getBitWidth() == Bitwidth;
 }
@@ -212,6 +216,8 @@ TypeSize Type::getPrimitiveSizeInBits() const {
     return TypeSize::getFixed(128);
   case Type::X86_AMXTyID:
     return TypeSize::getFixed(8192);
+  case Type::ByteTyID:
+    return TypeSize::getFixed(cast<ByteType>(this)->getBitWidth());
   case Type::IntegerTyID:
     return TypeSize::getFixed(cast<IntegerType>(this)->getBitWidth());
   case Type::FixedVectorTyID:
@@ -222,6 +228,8 @@ TypeSize Type::getPrimitiveSizeInBits() const {
     assert(!ETS.isScalable() && "Vector type should have fixed-width elements");
     return {ETS.getFixedValue() * EC.getKnownMinValue(), EC.isScalable()};
   }
+  case Type::SizedCapabilityTyID:
+    return TypeSize::getFixed(cast<SizedCapabilityType>(this)->getBitWidth());
   default:
     return TypeSize::getFixed(0);
   }
@@ -290,6 +298,17 @@ Type *Type::getFP128Ty(LLVMContext &C) { return &C.pImpl->FP128Ty; }
 Type *Type::getPPC_FP128Ty(LLVMContext &C) { return &C.pImpl->PPC_FP128Ty; }
 Type *Type::getX86_AMXTy(LLVMContext &C) { return &C.pImpl->X86_AMXTy; }
 
+ByteType *Type::getByte1Ty(LLVMContext &C) { return &C.pImpl->Byte1Ty; }
+ByteType *Type::getByte8Ty(LLVMContext &C) { return &C.pImpl->Byte8Ty; }
+ByteType *Type::getByte16Ty(LLVMContext &C) { return &C.pImpl->Byte16Ty; }
+ByteType *Type::getByte32Ty(LLVMContext &C) { return &C.pImpl->Byte32Ty; }
+ByteType *Type::getByte64Ty(LLVMContext &C) { return &C.pImpl->Byte64Ty; }
+ByteType *Type::getByte128Ty(LLVMContext &C) { return &C.pImpl->Byte128Ty; }
+
+ByteType *Type::getByteNTy(LLVMContext &C, unsigned N) {
+  return ByteType::get(C, N);
+}
+
 IntegerType *Type::getInt1Ty(LLVMContext &C) { return &C.pImpl->Int1Ty; }
 IntegerType *Type::getInt8Ty(LLVMContext &C) { return &C.pImpl->Int8Ty; }
 IntegerType *Type::getInt16Ty(LLVMContext &C) { return &C.pImpl->Int16Ty; }
@@ -299,6 +318,25 @@ IntegerType *Type::getInt128Ty(LLVMContext &C) { return &C.pImpl->Int128Ty; }
 
 IntegerType *Type::getIntNTy(LLVMContext &C, unsigned N) {
   return IntegerType::get(C, N);
+}
+
+Type *Type::getIntFromByteType(Type *Ty) {
+  assert(Ty->isByteOrByteVectorTy() && "Expected a byte or byte vector type.");
+  unsigned NumBits = Ty->getScalarSizeInBits();
+  IntegerType *IntTy = IntegerType::get(Ty->getContext(), NumBits);
+  if (VectorType *VecTy = dyn_cast<VectorType>(Ty))
+    return VectorType::get(IntTy, VecTy);
+  return IntTy;
+}
+
+Type *Type::getByteFromIntType(Type *Ty) {
+  assert(!Ty->isPtrOrPtrVectorTy() &&
+         "Expected a non-pointer or non-pointer vector type.");
+  unsigned NumBits = Ty->getScalarSizeInBits();
+  ByteType *ByteTy = ByteType::get(Ty->getContext(), NumBits);
+  if (VectorType *VecTy = dyn_cast<VectorType>(Ty))
+    return VectorType::get(ByteTy, VecTy);
+  return ByteTy;
 }
 
 Type *Type::getWasm_ExternrefTy(LLVMContext &C) {
@@ -340,6 +378,40 @@ IntegerType *IntegerType::get(LLVMContext &C, unsigned NumBits) {
 }
 
 APInt IntegerType::getMask() const { return APInt::getAllOnes(getBitWidth()); }
+
+//===----------------------------------------------------------------------===//
+//                       ByteType Implementation
+//===----------------------------------------------------------------------===//
+
+ByteType *ByteType::get(LLVMContext &C, unsigned NumBits) {
+  assert(NumBits >= MIN_BYTE_BITS && "bitwidth too small");
+  assert(NumBits <= MAX_BYTE_BITS && "bitwidth too large");
+
+  // Check for the built-in byte types
+  switch (NumBits) {
+  case 8:
+    return Type::getByte8Ty(C);
+  case 16:
+    return Type::getByte16Ty(C);
+  case 32:
+    return Type::getByte32Ty(C);
+  case 64:
+    return Type::getByte64Ty(C);
+  case 128:
+    return Type::getByte128Ty(C);
+  default:
+    break;
+  }
+
+  ByteType *&Entry = C.pImpl->ByteTypes[NumBits];
+
+  if (!Entry)
+    Entry = new (C.pImpl->Alloc) ByteType(C, NumBits);
+
+  return Entry;
+}
+
+APInt ByteType::getMask() const { return APInt::getAllOnes(getBitWidth()); }
 
 //===----------------------------------------------------------------------===//
 //                       FunctionType Implementation
@@ -788,7 +860,8 @@ VectorType *VectorType::get(Type *ElementType, ElementCount EC) {
 
 bool VectorType::isValidElementType(Type *ElemTy) {
   if (ElemTy->isIntegerTy() || ElemTy->isFloatingPointTy() ||
-      ElemTy->isPointerTy() || ElemTy->getTypeID() == TypedPointerTyID)
+      ElemTy->isPointerTy() || ElemTy->getTypeID() == TypedPointerTyID ||
+      ElemTy->isByteTy() || ElemTy->isSizedCapabilityTy())
     return true;
   if (auto *TTy = dyn_cast<TargetExtType>(ElemTy))
     return TTy->hasProperty(TargetExtType::CanBeVectorElement);
@@ -803,8 +876,8 @@ FixedVectorType *FixedVectorType::get(Type *ElementType, unsigned NumElts) {
   assert(NumElts > 0 && "#Elements of a VectorType must be greater than 0");
   assert(isValidElementType(ElementType) && "Element type of a VectorType must "
                                             "be an integer, floating point, "
-                                            "pointer type, or a valid target "
-                                            "extension type.");
+                                            "pointer type, sized capability or "
+                                            "a valid target extension type.");
 
   auto EC = ElementCount::getFixed(NumElts);
 
@@ -825,8 +898,9 @@ ScalableVectorType *ScalableVectorType::get(Type *ElementType,
                                             unsigned MinNumElts) {
   assert(MinNumElts > 0 && "#Elements of a VectorType must be greater than 0");
   assert(isValidElementType(ElementType) && "Element type of a VectorType must "
-                                            "be an integer, floating point, or "
-                                            "pointer type.");
+                                            "be an integer, floating point, "
+                                            "pointer, or sized capability "
+                                            "type.");
 
   auto EC = ElementCount::getScalable(MinNumElts);
 
@@ -1077,4 +1151,21 @@ Type *TargetExtType::getLayoutType() const {
 bool TargetExtType::hasProperty(Property Prop) const {
   uint64_t Properties = getTargetTypeInfo(this).Properties;
   return (Properties & Prop) == Prop;
+}
+
+//===----------------------------------------------------------------------===//
+//                     SizedCapabilityType Implementation
+//===----------------------------------------------------------------------===//
+
+SizedCapabilityType *SizedCapabilityType::get(LLVMContext &C,
+                                              unsigned NumBits) {
+  assert(NumBits >= MIN_CAP_BITS && "bitwidth too small");
+  assert(NumBits <= MAX_CAP_BITS && "bitwidth too large");
+
+  SizedCapabilityType *&Entry = C.pImpl->SizedCapabilityTypes[NumBits];
+
+  if (!Entry)
+    Entry = new (C.pImpl->Alloc) SizedCapabilityType(C, NumBits);
+
+  return Entry;
 }

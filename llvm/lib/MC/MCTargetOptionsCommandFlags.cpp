@@ -50,6 +50,7 @@ MCOPT(EmitDwarfUnwindType, EmitDwarfUnwind)
 MCOPT(bool, EmitCompactUnwindNonCanonical)
 MCOPT(bool, EmitSFrameUnwind)
 MCOPT(bool, ShowMCInst)
+MCOPT(bool, ShowMCInstSourceLoc)
 MCOPT(bool, FatalWarnings)
 MCOPT(bool, NoWarn)
 MCOPT(bool, NoDeprecatedWarn)
@@ -59,6 +60,7 @@ MCOPT(bool, Crel)
 MCOPT(bool, ImplicitMapSyms)
 MCOPT(bool, X86RelaxRelocations)
 MCOPT(bool, X86Sse2Avx)
+MCOPT(RelocSectionSymType, RelocSectionSym)
 MCSTROPT(ABIName)
 MCSTROPT(AsSecureLogFile)
 
@@ -123,6 +125,11 @@ llvm::mc::RegisterMCTargetOptionsFlags::RegisterMCTargetOptionsFlags() {
       cl::desc("Emit internal instruction representation to assembly file"));
   MCBINDOPT(ShowMCInst);
 
+  static cl::opt<bool> ShowMCInstSourceLoc(
+      "asm-show-source-loc",
+      cl::desc("Emit source locations of instructions to assembly file"));
+  MCBINDOPT(ShowMCInstSourceLoc);
+
   static cl::opt<bool> FatalWarnings("fatal-warnings",
                                      cl::desc("Treat warnings as errors"));
   MCBINDOPT(FatalWarnings);
@@ -168,6 +175,19 @@ llvm::mc::RegisterMCTargetOptionsFlags::RegisterMCTargetOptionsFlags() {
                               "instructions with VEX prefix"));
   MCBINDOPT(X86Sse2Avx);
 
+  static cl::opt<RelocSectionSymType> RelocSectionSym(
+      "reloc-section-sym",
+      cl::desc("Control section symbol conversion for relocations"),
+      cl::init(RelocSectionSymType::All),
+      cl::values(
+          clEnumValN(RelocSectionSymType::All, "all",
+                     "Use section symbols for all eligible local symbols"),
+          clEnumValN(RelocSectionSymType::Internal, "internal",
+                     "Only use section symbols for internal local symbols"),
+          clEnumValN(RelocSectionSymType::None, "none",
+                     "Never use section symbols")));
+  MCBINDOPT(RelocSectionSym);
+
   static cl::opt<std::string> ABIName(
       "target-abi",
       cl::desc("The name of the ABI to be targeted from the backend."),
@@ -189,6 +209,7 @@ MCTargetOptions llvm::mc::InitMCTargetOptionsFromFlags() {
   Options.Dwarf64 = getDwarf64();
   Options.DwarfVersion = getDwarfVersion();
   Options.ShowMCInst = getShowMCInst();
+  Options.ShowMCInstSourceLoc = getShowMCInstSourceLoc();
   Options.ABIName = getABIName();
   Options.MCFatalWarnings = getFatalWarnings();
   Options.MCNoWarn = getNoWarn();
@@ -199,6 +220,7 @@ MCTargetOptions llvm::mc::InitMCTargetOptionsFromFlags() {
   Options.ImplicitMapSyms = getImplicitMapSyms();
   Options.X86RelaxRelocations = getX86RelaxRelocations();
   Options.X86Sse2Avx = getX86Sse2Avx();
+  Options.RelocSectionSym = getRelocSectionSym();
   Options.EmitDwarfUnwind = getEmitDwarfUnwind();
   Options.EmitCompactUnwindNonCanonical = getEmitCompactUnwindNonCanonical();
   Options.EmitSFrameUnwind = getEmitSFrameUnwind();
