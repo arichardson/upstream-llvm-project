@@ -30,27 +30,34 @@ SUBSTITUTIONS = [
 ]
 
 
+def argparse_callback(args):
+    if args.llvm_objdump_binary is None and args.llvm_mc_binary:
+        mc_dir = os.path.dirname(args.llvm_mc_binary)
+        if mc_dir:
+            args.llvm_objdump_binary = os.path.join(mc_dir, "llvm-objdump")
+
+
 class Error(Exception):
     def __init__(self, test_info, line_no, msg):
         super().__init__(f"{test_info.path}:{line_no}: {msg}")
 
 
-def invoke_tool(exe, check_rc, cmd_args, full_input, verbose=False, sourcepath=None):
-    import os
-
-    objdump_binary = "llvm-objdump"
-    if os.path.isabs(exe):
-        mc_dir = os.path.dirname(exe)
-        candidate = os.path.join(mc_dir, "llvm-objdump")
-        if os.path.exists(candidate):
-            objdump_binary = candidate
-
+def invoke_tool(
+    exe,
+    check_rc,
+    cmd_args,
+    full_input,
+    verbose=False,
+    sourcepath=None,
+    objdump_binary=None,
+):
     substitutions = (
         common.getSubstitutions(sourcepath)
         + SUBSTITUTIONS
-        + [("llvm-objdump", objdump_binary)]
         + [(t, exe) for t in mc_LIKE_TOOLS]
     )
+    if objdump_binary:
+        substitutions.append(("llvm-objdump", objdump_binary))
     args = [
         common.applySubstitutions(cmd, substitutions) for cmd in cmd_args.split("|")
     ]
@@ -149,6 +156,47 @@ def getStdCheckLine(
     else:
         maybe_next = "-NEXT" if is_next else ""
         return f"{COMMENT[mc_mode]} {prefix}{maybe_next}: {line}"
+
+
+def select_prefixes_for_line(p_outputs, prefix_active_runs):
+    def norm_ws(s):
+        if s is None:
+            return None
+        return re.sub(r"\s+", " ", s).strip()
+
+    p_dict = {}
+    for p, run_id_outputs in p_outputs.items():
+        run_ids = [run_id for run_id, o in run_id_outputs]
+        outputs = [o for run_id, o in run_id_outputs]
+        if all(norm_ws(o) == norm_ws(outputs[0]) for o in outputs):
+            p_dict[p] = outputs[0], run_ids
+        else:
+            p_dict[p] = None, []
+
+    used_run_ids = set()
+    selected_prefixes = set()
+    get_num_runs = lambda item: len(item[1][1])
+    p_dict_sorted = sorted(p_dict.items(), key=get_num_runs, reverse=True)
+    for prefix, (o, run_ids) in p_dict_sorted:
+        if not run_ids:
+            continue
+        # The prefix MUST be active in exactly the same runs as run_ids!
+        if set(run_ids) != prefix_active_runs[prefix]:
+            continue
+        # Check redundancy
+        is_redundant = False
+        for p_sel in selected_prefixes:
+            o_sel, run_ids_sel = p_dict[p_sel]
+            if norm_ws(o_sel) == norm_ws(o) and set(run_ids).issubset(set(run_ids_sel)):
+                is_redundant = True
+                break
+        if is_redundant:
+            continue
+
+        if used_run_ids.isdisjoint(run_ids):
+            selected_prefixes.add(prefix)
+        used_run_ids.update(run_ids)
+    return selected_prefixes, p_dict
 
 
 def getStdCheckLines(
@@ -368,14 +416,16 @@ def update_test(ti: common.TestInfo):
             full_input,
             verbose=ti.args.verbose,
             sourcepath=ti.path,
+            objdump_binary=ti.args.llvm_objdump_binary,
         )
         line_outputs = collections.defaultdict(list)
         pending_lines = []
         ignore_count = 0
         discard_pending = False
         current_line_num = None
+        warned_unknown = False
         for line in full_out.splitlines():
-            line = line.replace("\t", " ").strip()
+            line = line.strip()
             if not line:
                 continue
             if OUTPUT_SKIPPED_RE.search(line):
@@ -429,7 +479,13 @@ def update_test(ti: common.TestInfo):
                     line,
                 )
                 if m_inst:
-                    inst_str = re.sub(r"\s+", " ", m_inst.group(1)).strip()
+                    inst_str = m_inst.group(1).strip()
+                    if "<unknown>" in inst_str and not warned_unknown:
+                        common.warn(
+                            "llvm-objdump returned '<unknown>' for instruction disassembly. "
+                            "You may need to specify the correct path using --llvm-objdump-binary."
+                        )
+                        warned_unknown = True
                     # Normalize hex immediates 0x... to decimal to match llvm-mc output format
                     inst_str = re.sub(
                         r"\b0x([0-9a-fA-F]+)\b",
@@ -441,7 +497,7 @@ def update_test(ti: common.TestInfo):
                     if ti.args.use_same_for_encoding:
                         m = re.search(r"(.*?)(\s*(?:#|//|;)\s*encoding:.*)", line)
                         if m:
-                            instr = re.sub(r"\s+", " ", m.group(1)).strip()
+                            instr = m.group(1).rstrip()
                             encoding = m.group(2).strip()
                             pending_lines.append(instr)
                             pending_lines.append(encoding)
@@ -529,38 +585,9 @@ def update_test(ti: common.TestInfo):
                     for p in raw_prefixes[run_id]:
                         p_outputs[p].append((run_id, o))
 
-            p_dict = {}
-            for p, run_id_outputs in p_outputs.items():
-                run_ids = [run_id for run_id, o in run_id_outputs]
-                outputs = [o for run_id, o in run_id_outputs]
-                if all(o == outputs[0] for o in outputs):
-                    p_dict[p] = outputs[0], run_ids
-                else:
-                    p_dict[p] = None, []
-
-            used_run_ids = set()
-            selected_prefixes = set()
-            get_num_runs = lambda item: len(item[1][1])
-            p_dict_sorted = sorted(p_dict.items(), key=get_num_runs, reverse=True)
-            for prefix, (o, run_ids) in p_dict_sorted:
-                if not run_ids:
-                    continue
-                # The prefix MUST be active in exactly the same runs as run_ids!
-                if set(run_ids) != prefix_active_runs[prefix]:
-                    continue
-                # Check redundancy
-                is_redundant = False
-                for p_sel in selected_prefixes:
-                    o_sel, run_ids_sel = p_dict[p_sel]
-                    if o_sel == o and set(run_ids).issubset(set(run_ids_sel)):
-                        is_redundant = True
-                        break
-                if is_redundant:
-                    continue
-
-                if used_run_ids.isdisjoint(run_ids):
-                    selected_prefixes.add(prefix)
-                used_run_ids.update(run_ids)
+            selected_prefixes, p_dict = select_prefixes_for_line(
+                p_outputs, prefix_active_runs
+            )
 
             for prefix in sorted(selected_prefixes):
                 o, run_ids = p_dict[prefix]
@@ -674,6 +701,11 @@ def main():
         help='The "mc" binary to use to generate the test case',
     )
     parser.add_argument(
+        "--llvm-objdump-binary",
+        default=None,
+        help='The "llvm-objdump" binary to use to generate the test case',
+    )
+    parser.add_argument(
         "--tool",
         default=None,
         help="Treat the given tool name as an mc-like tool for which check lines should be generated",
@@ -704,12 +736,16 @@ def main():
     )
     parser.add_argument("tests", nargs="+")
     initial_args = common.parse_commandline_args(parser)
+    argparse_callback(initial_args)
 
     script_name = os.path.basename(__file__)
 
     returncode = 0
     for ti in common.itertests(
-        initial_args.tests, parser, script_name="utils/" + script_name
+        initial_args.tests,
+        parser,
+        script_name="utils/" + script_name,
+        argparse_callback=argparse_callback,
     ):
         try:
             update_test(ti)
