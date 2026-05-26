@@ -163,6 +163,13 @@ ysunseal a0, a0, a0
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
+ybld a0, a0, a0
+// CHECK: ysunseal	a0, a0, a0
+// CHECK-ASM-SAME: # encoding: [0x33,0x25,0xa5,0x0e]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST11:]] YSUNSEAL{{$}}
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ybaser a0, a0
 // CHECK: ybaser	a0, a0
 // CHECK-ASM-SAME: # encoding: [0x33,0x05,0x55,0x10]
@@ -170,6 +177,12 @@ ybaser a0, a0
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ylenr a0, a0
+// CHECK: ylenr	a0, a0
+// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x65,0x10]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST13:]] YLENR{{$}}
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
+ytopr a0, a0
 // CHECK: ylenr	a0, a0
 // CHECK-ASM-SAME: # encoding: [0x33,0x05,0x65,0x10]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST13:]] YLENR{{$}}
