@@ -17,14 +17,14 @@ yadd a0, a0, a1
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X11>>
 yaddi a0, a0, 12
 // CHECK: yaddi	a0, a0, 12
-// CHECK-ASM-SAME: # encoding: [0x7b,0x15,0xc5,0x00]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x45,0xc5,0x00]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST2:]] YADDI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:12>>
 yadd a0, a0, 12
 // CHECK: yaddi	a0, a0, 12
-// CHECK-ASM-SAME: # encoding: [0x7b,0x15,0xc5,0x00]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x45,0xc5,0x00]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST2:]] YADDI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
