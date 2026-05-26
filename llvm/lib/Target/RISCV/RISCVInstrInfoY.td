@@ -26,9 +26,8 @@ def YBNDSWImmOperand : AsmOperandClass {
 
 def ybndsw_imm : Operand<XLenVT>, ImmLeaf<XLenVT, [{
   return (Imm >= 1 && Imm <= 256) ||
-         (Imm >= 258 && Imm <= 768 && (Imm % 2) == 0) ||
-         (Imm >= 772 && Imm <= 1792 && (Imm % 4) == 0) ||
-         (Imm >= 1800 && Imm <= 3840 && (Imm % 8) == 0);
+         (Imm > 256 && Imm <= 512 && (Imm % 8) == 0) ||
+         (Imm > 512 && Imm <= 4096 && (Imm % 16) == 0);
 }]> {
   let EncoderMethod = "getYBNDSWImmOpValue";
   let ParserMatchClass = YBNDSWImmOperand;
@@ -54,53 +53,57 @@ def uimm7_srliy : RISCVUImmOp<7>, ImmLeaf<XLenVT, [{
 // Instruction Formats and class templates
 //===----------------------------------------------------------------------===//
 
-// Like an RVInstR, except rs2 is now an additional function code.
-class RVYInstSrcDst<bits<7> funct7, bits<5> funct5, bits<3> funct3,
-                    RISCVOpcode opcode, dag outs, dag ins, string opcodestr,
-                    string argstr>
-    : RVInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+// All regular 3-operand RVY instructions use opc=CUSTOM-3/RVY-A with funct3=0
+defvar OPC_RVY_A = OPC_CUSTOM_3;
+class RVY_rr<bits<7> funct7, string opcodestr, DAGOperand rdOp,
+             DAGOperand rs1Op, DAGOperand rs2Op>
+    : RVInstR<funct7, 0b000, OPC_RVY_A, (outs rdOp:$rd),
+              (ins rs1Op:$rs1, rs2Op:$rs2), opcodestr, "$rd, $rs1, $rs2">;
+
+// Like RVY_rr, except rs2 is now an additional function code.
+class RVYInst2Op<bits<7> funct7, bits<5> funct5, DAGOperand rdOp,
+                 DAGOperand rs1Op, string opcodestr, string argstr>
+    : RVInst<(outs rdOp:$rd), (ins rs1Op:$rs1), opcodestr, argstr, [],
+             InstFormatR> {
   bits<5> rs1;
   bits<5> rd;
 
   let Inst{31-25} = funct7;
   let Inst{24-20} = funct5;
   let Inst{19-15} = rs1;
-  let Inst{14-12} = funct3;
+  let Inst{14-12} = 0b000; // funct3
   let Inst{11-7} = rd;
-  let Inst{6-0} = opcode.Value;
+  let Inst{6-0} = OPC_RVY_A.Value;
 }
 
-let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
-class RVY_r<bits<5> funct5, string opcodestr, DAGOperand rdOp = GPR,
-            DAGOperand rs1Op = YGPR>
-    : RVYInstSrcDst<0b0001000, funct5, 0b000, OPC_OP, (outs rdOp:$rd),
-                    (ins rs1Op:$rs1), opcodestr, "$rd, $rs1">;
-class RVY_rr<bits<7> funct7, bits<3> funct3, string opcodestr,
-             DAGOperand rdOp = YGPR, DAGOperand rs1Op = YGPR,
-             DAGOperand rs2Op = GPR>
-    : RVInstR<funct7, funct3, OPC_OP, (outs rdOp:$rd),
-              (ins rs1Op:$rs1, rs2Op:$rs2), opcodestr, "$rd, $rs1, $rs2">;
-class RVY_ri<bits<3> funct3, RISCVOpcode opcode, string opcodestr,
-             DAGOperand rdOp = YGPR, DAGOperand rs1Op = YGPR>
-    : RVInstI<funct3, opcode, (outs rdOp:$rd),
+class RVY_r_xy<bits<5> funct5, string opcodestr>
+    : RVYInst2Op<0b1111010, funct5, GPR, YGPR, opcodestr, "$rd, $rs1">;
+class RVY_r_yy<bits<5> funct5, string opcodestr>
+    : RVYInst2Op<0b1111011, funct5, YGPR, YGPR, opcodestr, "$rd, $rs1">;
+class RVY_r_xx<bits<5> funct5, string opcodestr>
+    : RVYInst2Op<0b1111000, funct5, GPR, GPR, opcodestr, "$rd, $rs1">;
+class RVY_ri<bits<3> funct3, string opcodestr, DAGOperand rdOp = YGPR,
+             DAGOperand rs1Op = YGPR>
+    : RVInstI<funct3, OPC_RVY_A, (outs rdOp:$rd),
               (ins rs1Op:$rs1, simm12_lo:$imm12), opcodestr,
               "$rd, $rs1, $imm12">;
 class RVY_bndswi<string opcodestr>
-   : RVInstIBase<0b011, OPC_OP_IMM_32, (outs YGPR:$rd),
+   : RVInstIBase<0b101, OPC_RVY_A, (outs YGPR:$rd),
                  (ins YGPR:$rs1, ybndsw_imm:$imm), opcodestr,
                  "$rd, $rs1, $imm"> {
   bits<5> rd;
   bits<5> rs1;
-  bits<10> imm;
+  bits<9> imm;
 
-  let Inst{31-30} = 0b00;
-  let Inst{29-20} = imm;
+  let Inst{31-29} = 0b111;
+  let Inst{28-20} = imm;
 }
-class RVY_srli<string opcodestr, bits<7> imm>
-    : RVInstIBase<0b101, OPC_OP_IMM, (outs GPR:$rd),
+class RVY_srli<string opcodestr>
+    : RVInstIBase<0b101, OPC_RVY_A, (outs GPR:$rd),
                   (ins YGPR:$rs1, uimm7_srliy:$shamt), opcodestr,
                   "$rd, $rs1, $shamt"> {
-  bits<7> shamt = imm;
+  bits<7> shamt;
 
   let Inst{31-27} = 0b00000;
   let Inst{26-20} = shamt;
@@ -112,61 +115,58 @@ let Predicates = [HasStdExtY] in {
 // Instructions to Update The Capability Pointer
 //
 let isReMaterializable = true, isAsCheapAsAMove = true in {
-def ADDY : RVY_rr<0b0000110, 0b000, "addy", YGPR, YGPR, GPRNoX0>;
-def ADDIY : RVY_ri<0b010, OPC_OP_IMM_32, "addiy">;
+def YADD : RVY_rr<0b0000011, "yadd", YGPR, YGPR, GPRNoX0>;
+def YADDI : RVY_ri<0b001, "yaddi">;
 }
-def : InstAlias<"addy $rd, $rs1, $imm12",
-                (ADDIY YGPR:$rd, YGPR:$rs1, simm12_lo:$imm12), 0>;
-def YADDRW : RVY_rr<0b0000110, 0b001, "yaddrw", YGPR, YGPR, GPR>;
+def : InstAlias<"yadd $rd, $rs1, $imm12",
+                (YADDI YGPR:$rd, YGPR:$rs1, simm12_lo:$imm12), 0>;
+def YADDRW : RVY_rr<0b0001011, "yaddrw", YGPR, YGPR, GPR>;
 
 //
 // Instructions to Manipulate Capabilities
 //
-def YPERMC : RVY_rr<0b0000110, 0b010, "ypermc", YGPR, YGPR, GPR>;
-let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isReMaterializable = true,
-    isAsCheapAsAMove = true, isMoveReg = true in
-def YMV : RVYInstSrcDst<0b0000110, 0b00000, 0b000, OPC_OP, (outs YGPR:$rd),
-                        (ins YGPR:$rs1), "ymv", "$rd, $rs1">;
-def PACKY : RVY_rr<0b0000100, 0b011, "packy", YGPR, YGPR, GPR>;
+def YPERMC : RVY_rr<0b0010011, "ypermc", YGPR, YGPR, GPR>;
+// YMV is encoded as YADD with rs2=x0
+let isReMaterializable = true, isAsCheapAsAMove = true, isMoveReg = true in
+def YMV : RVYInst2Op<0b0000011, 0b00000, YGPR, YGPR, "ymv", "$rd, $rs1">;
+def PACKY : RVY_rr<0b0000001, "packy", YGPR, YGPR, GPR>;
 def : MnemonicAlias<"yhiw", "packy">;
-def YBNDSW : RVY_rr<0b0000111, 0b000, "ybndsw", YGPR, YGPR, GPR>;
+def YBNDSW : RVY_rr<0b0011011, "ybndsw", YGPR, YGPR, GPR>;
 def YBNDSWI : RVY_bndswi<"ybndswi">;
 def : InstAlias<"ybndsw $rd, $rs1, $imm",
                 (YBNDSWI YGPR:$rd, YGPR:$rs1, ybndsw_imm:$imm), 0>;
-def YBNDSRW : RVY_rr<0b0000111, 0b001, "ybndsrw", YGPR, YGPR, GPR>;
-def YSUNSEAL : RVY_rr<0b0000111, 0b010, "ysunseal", YGPR, YGPR, YGPR>;
+def YBNDSRW : RVY_rr<0b0100011, "ybndsrw", YGPR, YGPR, GPR>;
+def YSUNSEAL : RVY_rr<0b0000111, "ysunseal", YGPR, YGPR, YGPR>;
+def YBLD : RVY_rr<0b0001111, "ybld", YGPR, YGPR, YGPR>;
 
 //
 // Instructions to Decode Capability Bounds
 //
-def YBASER : RVY_r<0b00101, "ybaser", GPR, YGPR>;
-def YLENR : RVY_r<0b00110, "ylenr", GPR, YGPR>;
+def YBASER : RVY_r_xy<0b00000, "ybaser">;
+def YLENR : RVY_r_xy<0b00011, "ylenr">;
+def YTOPR : RVY_r_xy<0b00010, "ytopr">;
 
 //
 // Instructions to Extract Capability Fields
 //
-def YTAGR : RVY_r<0b00000, "ytagr", GPR, YGPR>;
-def YPERMR : RVY_r<0b00001, "ypermr", GPR, YGPR>;
-def YTYPER : RVY_r<0b00010, "ytyper", GPR, YGPR>;
+def YTAGR : RVY_r_xy<0b00100, "ytagr">;
+def YPERMR : RVY_r_xy<0b00001, "ypermr">;
+def YTYPER : RVY_r_xy<0b00101, "ytyper">;
 // Extracting the high bits of capabilities is encoded as a XLEN-bit right shift
-// (SRLIY), with the only legal immediate being XLEN. YHIR is a pseudo that
+// of YLEN operands (but the RVY specification only defines the XLEN-wide shifts
+// and reserves other values for a future extension). YHIR is a pseudo that
 // expands to the correct shift value depending on RV32/RV64.
-// Since this instruction overlaps with the SRLI encoding we split it into two
-// instructions for RV32/RV64 so that it can be decoded correctly since a fixed
-// field is decoded before a given variable immediate one.
-// The alternative would be to use a decoder namespace
+def SRLIY : RVY_srli<"srliy">;
 let Predicates = [HasStdExtY, IsRV64] in {
-def SRLIY64 : RVY_srli<"srliy", 64>;
-def : InstAlias<"yhir $rd, $rs1", (SRLIY64 GPR:$rd, YGPR:$rs1, 64)>;
+def : InstAlias<"yhir $rd, $rs1", (SRLIY GPR:$rd, YGPR:$rs1, 64)>;
 }
 let Predicates = [HasStdExtY, IsRV32] in {
-def SRLIY32 : RVY_srli<"srliy", 32>;
-def : InstAlias<"yhir $rd, $rs1", (SRLIY32 GPR:$rd, YGPR:$rs1, 32)>;
+def : InstAlias<"yhir $rd, $rs1", (SRLIY GPR:$rd, YGPR:$rs1, 32)>;
 }
 //
 // Miscellaneous Instructions to Handle Capability Data
 //
-def SYEQ : RVY_rr<0b0000110, 0b100, "syeq", GPR, YGPR, YGPR>;
-def YLT : RVY_rr<0b0000110, 0b110, "ylt", GPR, YGPR, YGPR>;
-def YAMASK : RVY_r<0b00111, "yamask", GPR, GPR>;
+def YEQ : RVY_rr<0b0000110, "yeq", GPR, YGPR, YGPR>;
+def YSS : RVY_rr<0b0001110, "yss", GPR, YGPR, YGPR>;
+def YAMASK : RVY_r_xx<0b00000, "yamask">;
 } // Predicates = [HasStdExtY]

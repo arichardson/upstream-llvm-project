@@ -8,44 +8,44 @@
 // RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-y --defsym=XLEN=64 --riscv-add-build-attributes < %s \
 // RUN:   | llvm-objdump --mattr=+experimental-y -M no-aliases -d --no-print-imm-hex - | FileCheck %s --check-prefixes=CHECK,CHECK-64
 
-addy a0, a0, a1
-// CHECK: addy	a0, a0, a1
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0xb5,0x0c]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST1:]] ADDY{{$}}
+yadd a0, a0, a1
+// CHECK: yadd	a0, a0, a1
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xb5,0x06]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST1:]] YADD{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X11>>
-addiy a0, a0, 12
-// CHECK: addiy	a0, a0, 12
-// CHECK-ASM-SAME: # encoding: [0x1b,0x25,0xc5,0x00]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST2:]] ADDIY{{$}}
+yaddi a0, a0, 12
+// CHECK: yaddi	a0, a0, 12
+// CHECK-ASM-SAME: # encoding: [0x7b,0x15,0xc5,0x00]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST2:]] YADDI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:12>>
-addy a0, a0, 12
-// CHECK: addiy	a0, a0, 12
-// CHECK-ASM-SAME: # encoding: [0x1b,0x25,0xc5,0x00]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST2:]] ADDIY{{$}}
+yadd a0, a0, 12
+// CHECK: yaddi	a0, a0, 12
+// CHECK-ASM-SAME: # encoding: [0x7b,0x15,0xc5,0x00]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST2:]] YADDI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:12>>
 yaddrw a0, a0, a1
 // CHECK: yaddrw	a0, a0, a1
-// CHECK-ASM-SAME: # encoding: [0x33,0x15,0xb5,0x0c]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xb5,0x16]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST3:]] YADDRW{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X11>>
 ypermc a0, a0, a0
 // CHECK: ypermc	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x25,0xa5,0x0c]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x26]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST4:]] YPERMC{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>>
 ymv a0, a0
 // CHECK: ymv	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x05,0x0c]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x05,0x06]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST5:]] YMV{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
@@ -59,42 +59,42 @@ mv a0, a0
 // CHECK-ASM-NEXT: #  <MCOperand Imm:0>>
 packy a0, a0, a0
 // CHECK: packy	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x35,0xa5,0x08]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x02]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST7:]] PACKY{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>>
 yhiw a0, a0, a0
 // CHECK: packy	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x35,0xa5,0x08]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x02]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST7:]] PACKY{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>>
 ybndsw a0, a0, a0
 // CHECK: ybndsw	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0xa5,0x0e]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x36]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST8:]] YBNDSW{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>>
 ybndsrw a0, a0, a0
 // CHECK: ybndsrw	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x15,0xa5,0x0e]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x46]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST9:]] YBNDSRW{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>>
 ybndswi a0, a0, 12
 // CHECK: ybndswi	a0, a0, 12
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0xb5,0x00]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0xb5,0xe0]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:12>>
 ybndswi a0, a0, 12
 // CHECK: ybndswi	a0, a0, 12
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0xb5,0x00]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0xb5,0xe0]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
@@ -102,149 +102,147 @@ ybndswi a0, a0, 12
 //# Test all the  min and max values for the ybndswi encoding
 ybndswi a0, a0, 1
 // CHECK: ybndswi	a0, a0, 1
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0x05,0x00]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0x05,0xe0]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:1>>
 ybndswi a0, a0, 256
 // CHECK: ybndswi	a0, a0, 256
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0xf5,0x0f]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0xf5,0xef]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:256>>
 ybndswi a0, a0, 258
 // CHECK: ybndswi	a0, a0, 258
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0x05,0x10]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0x05,0xf0]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:258>>
 ybndswi a0, a0, 768
 // CHECK: ybndswi	a0, a0, 768
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0xf5,0x1f]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0xf5,0xff]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:768>>
 ybndswi a0, a0, 772
-// CHECK: ybndswi	a0, a0, 772
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0x05,0x20]
+// CHECK-ASM: ybndswi	a0, a0, 772
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0x05,0xe0]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:772>>
 ybndswi a0, a0, 1792
-// CHECK: ybndswi	a0, a0, 1792
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0xf5,0x2f]
+// CHECK-ASM: ybndswi	a0, a0, 1792
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0xf5,0xef]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:1792>>
 ybndswi a0, a0, 1800
-// CHECK: ybndswi	a0, a0, 1800
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0x05,0x30]
+// CHECK-ASM: ybndswi	a0, a0, 1800
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0x05,0xf0]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:1800>>
 ybndswi a0, a0, 3840
-// CHECK: ybndswi	a0, a0, 3840
-// CHECK-ASM-SAME: # encoding: [0x1b,0x35,0xf5,0x3f]
+// CHECK-ASM: ybndswi	a0, a0, 3840
+// CHECK-ASM-SAME: # encoding: [0x7b,0x55,0xf5,0xff]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST10:]] YBNDSWI{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Imm:3840>>
 ysunseal a0, a0, a0
 // CHECK: ysunseal	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x25,0xa5,0x0e]
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x0e]
 // CHECK-ASM-NEXT: # <MCInst #[[#MCINST11:]] YSUNSEAL{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ybld a0, a0, a0
-// CHECK: ysunseal	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x25,0xa5,0x0e]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST11:]] YSUNSEAL{{$}}
+// CHECK: ybld	a0, a0, a0
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x1e]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST12:]] YBLD{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ybaser a0, a0
 // CHECK: ybaser	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x55,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST12:]] YBASER{{$}}
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x05,0xf4]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST13:]] YBASER{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ylenr a0, a0
 // CHECK: ylenr	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x65,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST13:]] YLENR{{$}}
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x35,0xf4]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST14:]] YLENR{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ytopr a0, a0
-// CHECK: ylenr	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x65,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST13:]] YLENR{{$}}
+// CHECK: ytopr	a0, a0
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x25,0xf4]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST15:]] YTOPR{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ytagr a0, a0
 // CHECK: ytagr	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x05,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST14:]] YTAGR{{$}}
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x45,0xf4]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST16:]] YTAGR{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ypermr a0, a0
 // CHECK: ypermr	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x15,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST15:]] YPERMR{{$}}
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x15,0xf4]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST17:]] YPERMR{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 ytyper a0, a0
 // CHECK: ytyper	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x25,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST16:]] YTYPER{{$}}
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x55,0xf4]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST18:]] YTYPER{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 srliy a0, a0, XLEN
 // CHECK-32: srliy	a0, a0, 32
 // CHECK-64: srliy	a0, a0, 64
-// CHECK-ASM-32-SAME: # encoding: [0x13,0x55,0x05,0x02]
-// CHECK-ASM-64-SAME: # encoding: [0x13,0x55,0x05,0x04]
-// CHECK-ASM-32-NEXT: # <MCInst #[[#MCINST17:]] SRLIY32{{$}}
-// CHECK-ASM-64-NEXT: # <MCInst #[[#MCINST18:]] SRLIY64{{$}}
-// CHECK-ASM: #  <MCOperand Reg:X10>
+// CHECK-ASM-32-SAME: # encoding: [0x7b,0x55,0x05,0x02]
+// CHECK-ASM-64-SAME: # encoding: [0x7b,0x55,0x05,0x04]
+// CHECK-ASM: # <MCInst #[[#MCINST19:]] SRLIY{{$}}
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-32-NEXT: #  <MCOperand Imm:32>>
 // CHECK-ASM-64-NEXT: #  <MCOperand Imm:64>>
 yhir a0, a0
 // CHECK-32: srliy	a0, a0, 32
 // CHECK-64: srliy	a0, a0, 64
-// CHECK-ASM-32-SAME: # encoding: [0x13,0x55,0x05,0x02]
-// CHECK-ASM-64-SAME: # encoding: [0x13,0x55,0x05,0x04]
-// CHECK-ASM-32-NEXT: # <MCInst #[[#MCINST17:]] SRLIY32{{$}}
-// CHECK-ASM-64-NEXT: # <MCInst #[[#MCINST18:]] SRLIY64{{$}}
-// CHECK-ASM: #  <MCOperand Reg:X10>
+// CHECK-ASM-32-SAME: # encoding: [0x7b,0x55,0x05,0x02]
+// CHECK-ASM-64-SAME: # encoding: [0x7b,0x55,0x05,0x04]
+// CHECK-ASM: # <MCInst #[[#MCINST19:]] SRLIY{{$}}
+// CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-32-NEXT: #  <MCOperand Imm:32>>
 // CHECK-ASM-64-NEXT: #  <MCOperand Imm:64>>
-syeq a0, a0, a0
-// CHECK: syeq	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x45,0xa5,0x0c]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST19:]] SYEQ{{$}}
+yeq a0, a0, a0
+// CHECK: yeq	a0, a0, a0
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x0c]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST20:]] YEQ{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
-ylt a0, a0, a0
-// CHECK: ylt	a0, a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x65,0xa5,0x0c]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST20:]] YLT{{$}}
+yss a0, a0, a0
+// CHECK: yss	a0, a0, a0
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0xa5,0x1c]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST21:]] YSS{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10_Y>>
 yamask a0, a0
 // CHECK: yamask	a0, a0
-// CHECK-ASM-SAME: # encoding: [0x33,0x05,0x75,0x10]
-// CHECK-ASM-NEXT: # <MCInst #[[#MCINST21:]] YAMASK{{$}}
+// CHECK-ASM-SAME: # encoding: [0x7b,0x05,0x05,0xf0]
+// CHECK-ASM-NEXT: # <MCInst #[[#MCINST22:]] YAMASK{{$}}
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>
 // CHECK-ASM-NEXT: #  <MCOperand Reg:X10>>
