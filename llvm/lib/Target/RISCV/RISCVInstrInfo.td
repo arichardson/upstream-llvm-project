@@ -662,8 +662,9 @@ class HLoad_r<bits<7> funct7, bits<5> funct5, string opcodestr>
 // reflecting the order these fields are specified in the instruction
 // encoding.
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
-class Store_rri<bits<3> funct3, string opcodestr, DAGOperand rty = GPR>
-    : RVInstS<funct3, OPC_STORE, (outs),
+class Store_rri<bits<3> funct3, string opcodestr, DAGOperand rty = GPR,
+                RISCVOpcode opcode = OPC_STORE>
+    : RVInstS<funct3, opcode, (outs),
               (ins rty:$rs2, BasePtr:$rs1, simm12_lo:$imm12),
               opcodestr, "$rs2, ${imm12}(${rs1})">;
 

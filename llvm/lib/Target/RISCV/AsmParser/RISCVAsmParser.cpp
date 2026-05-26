@@ -1400,7 +1400,7 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
   // TODO: Is there any way we could do this in tablegen automatically?
   const MCRegisterClass *CheckRC = nullptr;
   if (Kind > MCK_LAST_REGISTER && Kind <= MCK_LAST_REGCLASS_BY_HWMODE) {
-    bool RVY = !STI->hasFeature(RISCV::FeatureYIntMode);
+    bool RVY = !STI->hasFeature(RISCV::FeatureRVYIntMode);
     switch (Kind) {
     case MCK_RegByHwMode_BasePtrRegClass:
       // X0 is reserved in RVY mode, so this maps to MCK_YGPRNoX0.
