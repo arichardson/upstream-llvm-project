@@ -320,6 +320,11 @@ class GPRRegisterClass<dag regList>
   let RegInfos = XLenRI;
 }
 
+class YGPRRegisterClass<dag regList>
+    : RISCVRegisterClass<[YLenVT], 64, regList> {
+  let RegInfos = YLenRI;
+}
+
 // The order of registers represents the preferred allocation sequence.
 // Registers are listed in the order caller-save, callee-save, specials.
 def GPR : GPRRegisterClass<(add (sequence "X%u", 10, 17),
@@ -329,14 +334,12 @@ def GPR : GPRRegisterClass<(add (sequence "X%u", 10, 17),
                                 (sequence "X%u", 18, 27),
                                 (sequence "X%u", 0, 4))>;
 
-def YGPR : RegisterClass<"RISCV", [YLenVT], 64,
-                         (add (sequence "X%u_Y", 10, 17),
-                              (sequence "X%u_Y", 5, 7),
-                              (sequence "X%u_Y", 28, 31),
-                              (sequence "X%u_Y", 8, 9),
-                              (sequence "X%u_Y", 18, 27),
-                              (sequence "X%u_Y", 0, 4))> {
-  let RegInfos = YLenRI;
+def YGPR : YGPRRegisterClass<(add (sequence "X%u_Y", 10, 17),
+                                  (sequence "X%u_Y", 5, 7),
+                                  (sequence "X%u_Y", 28, 31),
+                                  (sequence "X%u_Y", 8, 9),
+                                  (sequence "X%u_Y", 18, 27),
+                                  (sequence "X%u_Y", 0, 4))> {
   let DecoderMethod = "DecodeSimpleRegisterClass<RISCV::X0_Y, 32, /*RVELimit=*/16>";
 }
 
@@ -364,7 +367,7 @@ def GPRNoX0 : GPRRegisterClass<(sub GPR, X0)> {
   let DiagnosticType = "InvalidRegClassGPRNoX0";
   let DiagnosticString = "register must be a GPR excluding zero (x0)";
 }
-def YGPRNoX0 : GPRRegisterClass<(sub YGPR, X0_Y)> {
+def YGPRNoX0 : YGPRRegisterClass<(sub YGPR, X0_Y)> {
   let DiagnosticType = "InvalidRegClassYGPRNoX0";
   let DiagnosticString = GPRNoX0.DiagnosticString;
 }
