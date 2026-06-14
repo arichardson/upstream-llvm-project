@@ -661,7 +661,38 @@ static void FactorNodes(MatcherList &ML) {
   }
 }
 
+static void PruneRedundantPredicates(MatcherList &ML, const CodeGenHwModes &CGH,
+                                     HwModePredicates CurrentPreds) {
+  auto P = ML.before_begin();
+  auto I = std::next(P);
+
+  while (I != ML.end()) {
+    Matcher *N = *I;
+
+    if (auto *Scope = dyn_cast<ScopeMatcher>(N)) {
+      for (unsigned i = 0, e = Scope->getNumChildren(); i != e; ++i)
+        PruneRedundantPredicates(Scope->getChild(i), CGH, CurrentPreds);
+      return;
+    }
+
+    if (auto *CPP = dyn_cast<CheckPatternPredicateMatcher>(N)) {
+      const HwModePredicates &CPPPreds = CPP->getHwModePredicates();
+      if (CurrentPreds.implies(CPPPreds, CGH)) {
+        LLVM_DEBUG(dbgs() << "Pruning redundant pattern predicate: "
+                          << CPP->getPredicate() << "\n");
+        I = ML.erase_after(P);
+        continue;
+      }
+      CurrentPreds.add(CPPPreds);
+    }
+
+    P = I;
+    I = std::next(I);
+  }
+}
+
 void llvm::OptimizeMatcher(MatcherList &ML, const CodeGenDAGPatterns &CGP) {
   ContractNodes(ML, CGP);
   FactorNodes(ML);
+  PruneRedundantPredicates(ML, CGP.getTargetInfo().getHwModes(), HwModePredicates());
 }

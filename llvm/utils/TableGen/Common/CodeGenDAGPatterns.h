@@ -16,6 +16,7 @@
 
 #include "Basic/CodeGenIntrinsics.h"
 #include "Basic/SDNodeProperties.h"
+#include "CodeGenHwModes.h"
 #include "CodeGenTarget.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/MapVector.h"
@@ -37,6 +38,7 @@ namespace llvm {
 
 class Init;
 class ListInit;
+class CodeGenDAGPatterns;
 class DagInit;
 class SDNodeInfo;
 class TreePattern;
@@ -1062,15 +1064,49 @@ class PatternToMatch {
   int AddedComplexity;    // Add to matching pattern complexity.
   bool GISelShouldIgnore; // Should GlobalISel ignore importing this pattern.
   unsigned ID;            // Unique ID for the record.
+  HwModePredicates PatPreds;
+  std::vector<const Record *> AllPredicates;
+
+  void prunePredicates(const CodeGenDAGPatterns &CGP);
 
 public:
   PatternToMatch(const Record *srcrecord, const ListInit *preds,
                  TreePatternNodePtr src, TreePatternNodePtr dst,
                  ArrayRef<const Record *> dstregs, int complexity, unsigned uid,
-                 bool ignore, const Twine &hwmodefeatures = "")
+                 bool ignore, const CodeGenDAGPatterns &CGP,
+                 const Twine &hwmodefeatures = "")
       : SrcRecord(srcrecord), Predicates(preds), SrcPattern(src),
         DstPattern(dst), Dstregs(dstregs), HwModeFeatures(hwmodefeatures.str()),
-        AddedComplexity(complexity), GISelShouldIgnore(ignore), ID(uid) {}
+        AddedComplexity(complexity), GISelShouldIgnore(ignore), ID(uid) {
+    SmallVector<const Record *, 4> PredicateRecs;
+    getPredicateRecords(PredicateRecs);
+    AllPredicates.assign(PredicateRecs.begin(), PredicateRecs.end());
+    prunePredicates(CGP);
+    PatPreds = HwModePredicates(AllPredicates);
+  }
+
+  PatternToMatch(const Record *srcrecord, const ListInit *preds,
+                 TreePatternNodePtr src, TreePatternNodePtr dst,
+                 ArrayRef<const Record *> dstregs, int complexity, unsigned uid,
+                 bool ignore, const Twine &hwmodefeatures,
+                 ArrayRef<const Record *> HwModePreds,
+                 const HwModePredicates &CombinedPreds,
+                 const CodeGenDAGPatterns &CGP)
+      : SrcRecord(srcrecord), Predicates(preds), SrcPattern(src),
+        DstPattern(dst), Dstregs(dstregs), HwModeFeatures(hwmodefeatures.str()),
+        AddedComplexity(complexity), GISelShouldIgnore(ignore), ID(uid) {
+    SmallVector<const Record *, 4> PredicateRecs;
+    getPredicateRecords(PredicateRecs);
+    AllPredicates.assign(PredicateRecs.begin(), PredicateRecs.end());
+    AllPredicates.insert(AllPredicates.end(), HwModePreds.begin(),
+                         HwModePreds.end());
+    prunePredicates(CGP);
+    if (HwModePreds.empty() && !HwModeFeatures.empty()) {
+      PatPreds = CombinedPreds;
+    } else {
+      PatPreds = HwModePredicates(AllPredicates);
+    }
+  }
 
   const Record *getSrcRecord() const { return SrcRecord; }
   const ListInit *getPredicates() const { return Predicates; }
@@ -1080,10 +1116,11 @@ public:
   TreePatternNodePtr getDstPatternShared() const { return DstPattern; }
   ArrayRef<const Record *> getDstRegs() const { return Dstregs; }
   StringRef getHwModeFeatures() const { return HwModeFeatures; }
+  const HwModePredicates &getHwModePredicates() const { return PatPreds; }
+  ArrayRef<const Record *> getAllPredicates() const { return AllPredicates; }
   int getAddedComplexity() const { return AddedComplexity; }
   bool getGISelShouldIgnore() const { return GISelShouldIgnore; }
   unsigned getID() const { return ID; }
-
   std::string getPredicateCheck() const;
   void
   getPredicateRecords(SmallVectorImpl<const Record *> &PredicateRecs) const;

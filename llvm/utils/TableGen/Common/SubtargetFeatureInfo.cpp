@@ -9,8 +9,12 @@
 #include "SubtargetFeatureInfo.h"
 #include "Types.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
+
+#define DEBUG_TYPE "subtarget-feature-info"
 
 using namespace llvm;
 
@@ -222,6 +226,90 @@ void SubtargetFeatureInfo::emitComputeAssemblerAvailableFeatures(
   OS << "}\n\n";
 }
 
+struct CNFFormula {
+  std::vector<std::set<SubtargetFeatureLiteral>> Clauses;
+
+  bool empty() const { return Clauses.empty(); }
+
+  void addAnd(const CNFFormula &Other) {
+    Clauses.insert(Clauses.end(), Other.Clauses.begin(), Other.Clauses.end());
+  }
+
+  void addOr(const CNFFormula &Other) {
+    if (Clauses.empty()) {
+      Clauses = Other.Clauses;
+      return;
+    }
+    if (Other.Clauses.empty())
+      return;
+
+    std::vector<std::set<SubtargetFeatureLiteral>> Result;
+    for (const auto &C1 : Clauses) {
+      for (const auto &C2 : Other.Clauses) {
+        std::set<SubtargetFeatureLiteral> Combined = C1;
+        Combined.insert(C2.begin(), C2.end());
+        Result.push_back(std::move(Combined));
+      }
+    }
+    Clauses = std::move(Result);
+  }
+
+  void negate() {
+    if (Clauses.empty())
+      return;
+
+    CNFFormula Result;
+    for (const auto &Clause : Clauses) {
+      CNFFormula NegatedClause;
+      for (const auto &Lit : Clause) {
+        std::set<SubtargetFeatureLiteral> NegatedLitClause = {{Lit.Feature, !Lit.IsNot}};
+        NegatedClause.Clauses.push_back(std::move(NegatedLitClause));
+      }
+      Result.addOr(NegatedClause);
+    }
+    Clauses = std::move(Result.Clauses);
+  }
+};
+
+static CNFFormula parseAssemblerCondDag(const Init *I, const Record *Rec) {
+  CNFFormula F;
+  if (auto *DI = dyn_cast<DefInit>(I)) {
+    if (!DI->getDef()->isSubClassOf("SubtargetFeature"))
+      PrintFatalError(Rec->getLoc(), "Invalid AssemblerCondDag: argument is not a SubtargetFeature!");
+    F.Clauses.push_back({{DI->getDef()->getName(), false}});
+    return F;
+  }
+
+  if (auto *Dag = dyn_cast<DagInit>(I)) {
+    auto *Op = dyn_cast<DefInit>(Dag->getOperator());
+    if (!Op)
+      PrintFatalError(Rec->getLoc(), "Invalid AssemblerCondDag: operator is not a def!");
+    StringRef OpName = Op->getDef()->getName();
+
+    if (OpName == "not" && Dag->getNumArgs() == 1) {
+      F = parseAssemblerCondDag(Dag->getArg(0), Rec);
+      F.negate();
+      return F;
+    }
+
+    if ((OpName == "any_of" || OpName == "all_of") && Dag->getNumArgs() > 0) {
+      bool IsOr = OpName == "any_of";
+      for (auto *Arg : Dag->getArgs()) {
+        CNFFormula ArgF = parseAssemblerCondDag(Arg, Rec);
+        if (IsOr)
+          F.addOr(ArgF);
+        else
+          F.addAnd(ArgF);
+      }
+      return F;
+    }
+
+    PrintFatalError(Rec->getLoc(), "Invalid AssemblerCondDag: unsupported operator '" + OpName + "'!");
+  }
+
+  PrintFatalError(Rec->getLoc(), "Invalid AssemblerCondDag: unexpected initializer!");
+}
+
 void llvm::getRequiredFeatures(
     std::set<SubtargetFeatureLiteral> &FeaturesSet,
     std::set<std::set<SubtargetFeatureLiteral>> &AnyOfFeatureSets,
@@ -229,38 +317,32 @@ void llvm::getRequiredFeatures(
   for (const Record *R : ReqPredicates) {
     const RecordVal *V = R->getValue("AssemblerCondDag");
     if (!V || !V->getValue() || !isa<DagInit>(V->getValue())) {
-      // Ignore this predicate for semantic analysis, as it has no subtarget
-      // features.
+      if (R->getValue("CondString")) {
+        StringRef Cond = R->getValueAsString("CondString");
+        if (!Cond.empty()) {
+          FeaturesSet.insert({R->getName(), false});
+        }
+      }
       continue;
     }
     const DagInit *D = cast<DagInit>(V->getValue());
     std::string CombineType = D->getOperator()->getAsString();
-    if (CombineType != "any_of" && CombineType != "all_of")
+    if (CombineType != "any_of" && CombineType != "all_of" && CombineType != "not")
       PrintFatalError(R->getLoc(), "Invalid AssemblerCondDag!");
-    if (D->getNumArgs() == 0)
+    if (CombineType == "not" && D->getNumArgs() != 1)
       PrintFatalError(R->getLoc(), "Invalid AssemblerCondDag!");
-    bool IsOr = CombineType == "any_of";
-    std::set<SubtargetFeatureLiteral> AnyOfSet;
+    if (CombineType != "not" && D->getNumArgs() == 0)
+      PrintFatalError(R->getLoc(), "Invalid AssemblerCondDag!");
 
-    for (auto *Arg : D->getArgs()) {
-      bool IsNot = false;
-      if (auto *NotArg = dyn_cast<DagInit>(Arg)) {
-        if (NotArg->getOperator()->getAsString() != "not" ||
-            NotArg->getNumArgs() != 1)
-          PrintFatalError(R->getLoc(), "Invalid AssemblerCondDag!");
-        Arg = NotArg->getArg(0);
-        IsNot = true;
+    CNFFormula F = parseAssemblerCondDag(D, R);
+    for (auto &Clause : F.Clauses) {
+      if (Clause.empty())
+        continue;
+      if (Clause.size() == 1) {
+        FeaturesSet.insert(*Clause.begin());
+      } else {
+        AnyOfFeatureSets.insert(std::move(Clause));
       }
-      if (!isa<DefInit>(Arg) ||
-          !cast<DefInit>(Arg)->getDef()->isSubClassOf("SubtargetFeature"))
-        PrintFatalError(R->getLoc(), "Invalid AssemblerCondDag!");
-      if (IsOr)
-        AnyOfSet.insert({cast<DefInit>(Arg)->getDef()->getName(), IsNot});
-      else
-        FeaturesSet.insert({cast<DefInit>(Arg)->getDef()->getName(), IsNot});
     }
-
-    if (IsOr)
-      AnyOfFeatureSets.insert(std::move(AnyOfSet));
   }
 }

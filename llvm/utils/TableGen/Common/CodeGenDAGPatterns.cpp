@@ -15,6 +15,7 @@
 #include "CodeGenInstruction.h"
 #include "CodeGenRegisters.h"
 #include "SubtargetFeatureInfo.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
@@ -1530,17 +1531,47 @@ void PatternToMatch::getPredicateRecords(
   PredicateRecs.erase(llvm::unique(PredicateRecs), PredicateRecs.end());
 }
 
+void PatternToMatch::prunePredicates(const CodeGenDAGPatterns &CGP) {
+  static DenseMap<const Record *, HwModePredicates> Cache;
+
+  auto GetHwModePredicates = [](const Record *R) {
+    auto It = Cache.find(R);
+    if (It != Cache.end())
+      return It->second;
+    HwModePredicates HP(ArrayRef<const Record *>(&R, 1));
+    Cache[R] = HP;
+    return HP;
+  };
+
+  std::vector<const Record *> Kept;
+  for (size_t i = 0; i < AllPredicates.size(); ++i) {
+    HwModePredicates OthersPreds;
+    for (size_t j = 0; j < Kept.size(); ++j) {
+      OthersPreds.add(GetHwModePredicates(Kept[j]));
+    }
+    for (size_t j = i + 1; j < AllPredicates.size(); ++j) {
+      OthersPreds.add(GetHwModePredicates(AllPredicates[j]));
+    }
+
+    HwModePredicates ThisPred = GetHwModePredicates(AllPredicates[i]);
+    if (OthersPreds.implies(ThisPred, CGP.getTargetInfo().getHwModes())) {
+      LLVM_DEBUG(dbgs() << "Pruned redundant predicate " << AllPredicates[i]->getName()
+                        << " because it is implied by others.\n");
+    } else {
+      Kept.push_back(AllPredicates[i]);
+    }
+  }
+  AllPredicates = std::move(Kept);
+}
+
 /// getPredicateCheck - Return a single string containing all of this
 /// pattern's predicates concatenated with "&&" operators.
 ///
 std::string PatternToMatch::getPredicateCheck() const {
-  SmallVector<const Record *, 4> PredicateRecs;
-  getPredicateRecords(PredicateRecs);
-
   SmallString<128> PredicateCheck;
   raw_svector_ostream OS(PredicateCheck);
   ListSeparator LS(" && ");
-  for (const Record *Pred : PredicateRecs) {
+  for (const Record *Pred : AllPredicates) {
     StringRef CondString = Pred->getValueAsString("CondString");
     if (CondString.empty())
       continue;
@@ -4499,7 +4530,7 @@ void CodeGenDAGPatterns::ParseOnePattern(
         AddPatternToMatch(&Pattern,
                           PatternToMatch(TheDef, Preds, T, Temp.getOnlyTree(),
                                          InstImpResults, Complexity,
-                                         TheDef->getID(), ShouldIgnore));
+                                         TheDef->getID(), ShouldIgnore, *this));
     }
   } else {
     // Show a message about a dropped pattern with some info to make it
@@ -4565,7 +4596,8 @@ void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
   PatternsToMatch.swap(Copy);
 
   auto AppendPattern = [this](PatternToMatch &P, unsigned Mode,
-                              StringRef Check) {
+                              StringRef Check, ArrayRef<const Record *> HwModePreds,
+                              const HwModePredicates &CombinedPreds) {
     TreePatternNodePtr NewSrc = P.getSrcPattern().clone();
     TreePatternNodePtr NewDst = P.getDstPattern().clone();
     if (!NewSrc->setDefaultMode(Mode) || !NewDst->setDefaultMode(Mode)) {
@@ -4575,9 +4607,11 @@ void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
     PatternsToMatch.emplace_back(P.getSrcRecord(), P.getPredicates(),
                                  std::move(NewSrc), std::move(NewDst),
                                  P.getDstRegs(), P.getAddedComplexity(),
-                                 getNewUID(), P.getGISelShouldIgnore(), Check);
+                                 getNewUID(), P.getGISelShouldIgnore(), Check,
+                                 HwModePreds, CombinedPreds, *this);
   };
 
+  unsigned PrunedCount = 0;
   for (PatternToMatch &P : Copy) {
     const TreePatternNode *SrcP = nullptr, *DstP = nullptr;
     if (P.getSrcPattern().hasProperTypeByHwMode())
@@ -4607,6 +4641,9 @@ void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
     // default check as a negation of all predicates that are actually present
     // in the source/destination patterns.
     SmallString<128> DefaultCheck;
+    SmallVector<const Record *, 4> PredicateRecs;
+    P.getPredicateRecords(PredicateRecs);
+    HwModePredicates PatPreds(PredicateRecs);
 
     for (unsigned M : Modes) {
       if (M == DefaultMode)
@@ -4615,10 +4652,19 @@ void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
       // Fill the map entry for this mode.
       const HwMode &HM = CGH.getMode(M);
 
+      HwModePredicates ModePreds(HM.Predicates);
+      if (PatPreds.conflictsWith(ModePreds, CGH)) {
+        PrunedCount++;
+        continue;
+      }
+
+      HwModePredicates Combined = PatPreds;
+      Combined.add(ModePreds);
+
       SmallString<128> PredicateCheck;
       raw_svector_ostream PS(PredicateCheck);
       SubtargetFeatureInfo::emitPredicateCheck(PS, HM.Predicates);
-      AppendPattern(P, M, PredicateCheck);
+      AppendPattern(P, M, PredicateCheck, HM.Predicates, Combined);
 
       // Add negations of the HM's predicates to the default predicate.
       if (!DefaultCheck.empty())
@@ -4629,8 +4675,14 @@ void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
     }
 
     bool HasDefault = Modes.count(DefaultMode);
-    if (HasDefault)
-      AppendPattern(P, DefaultMode, DefaultCheck);
+    if (HasDefault) {
+      HwModePredicates Combined = PatPreds;
+      Combined.add(HwModePredicates::createForDefaultMode(CGH));
+      AppendPattern(P, DefaultMode, DefaultCheck, {}, Combined);
+    }
+  }
+  if (PrunedCount > 0) {
+    errs() << "Pruned " << PrunedCount << " contradictory HwMode pattern variants for " << getTargetInfo().getName() << "\n";
   }
 }
 
@@ -4950,7 +5002,7 @@ void CodeGenDAGPatterns::GenerateVariants() {
           Variant, PatternsToMatch[i].getDstPatternShared(),
           PatternsToMatch[i].getDstRegs(),
           PatternsToMatch[i].getAddedComplexity(), getNewUID(),
-          PatternsToMatch[i].getGISelShouldIgnore(),
+          PatternsToMatch[i].getGISelShouldIgnore(), *this,
           PatternsToMatch[i].getHwModeFeatures());
     }
 

@@ -15,6 +15,7 @@
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include <algorithm>
+#include <functional>
 #include <set>
 
 using namespace llvm;
@@ -130,11 +131,26 @@ static bool simplifyOrSet(const std::set<SubtargetFeatureLiteral> &OrSet,
 // Evaluates if the current set of predicates contains a contradiction.
 // Performs unit propagation: if we have a known feature F, we can simplify
 // OR-sets (A || B) containing F or !F.
-bool HwModePredicates::isSelfContradictory() {
-  // Check for immediate contradictions (e.g. requiring both F and !F).
-  for (const auto &Lit : FeaturesSet) {
-    if (FeaturesSet.count({Lit.Feature, !Lit.IsNot}))
-      return true;
+bool HwModePredicates::isSelfContradictory(const CodeGenHwModes &CGH) {
+  // Check for immediate contradictions and implication contradictions.
+  for (const auto &Lit1 : FeaturesSet) {
+    for (const auto &Lit2 : FeaturesSet) {
+      if (Lit1.Feature == Lit2.Feature) {
+        if (Lit1.IsNot != Lit2.IsNot)
+          return true;
+        continue;
+      }
+      // Case 1: Lit1 is A, Lit2 is !B. A implies B.
+      if (!Lit1.IsNot && Lit2.IsNot) {
+        if (CGH.featureImplies(Lit1.Feature, Lit2.Feature))
+          return true;
+      }
+      // Case 2: Lit1 is !A, Lit2 is B. B implies A.
+      if (Lit1.IsNot && !Lit2.IsNot) {
+        if (CGH.featureImplies(Lit2.Feature, Lit1.Feature))
+          return true;
+      }
+    }
   }
 
   std::set<std::set<SubtargetFeatureLiteral>> NewAnyOfs;
@@ -160,17 +176,37 @@ bool HwModePredicates::isSelfContradictory() {
 
   if (FeaturesChanged) {
     AnyOfFeatureSets = std::move(NewAnyOfs);
-    return isSelfContradictory();
+    return isSelfContradictory(CGH);
   }
 
   return false;
 }
 
 // Two predicate sets conflict if their union is self-contradictory.
-bool HwModePredicates::conflictsWith(const HwModePredicates &Other) const {
+bool HwModePredicates::conflictsWith(const HwModePredicates &Other,
+                                     const CodeGenHwModes &CGH) const {
   HwModePredicates Combined(*this);
   Combined.add(Other);
-  return Combined.isSelfContradictory();
+  return Combined.isSelfContradictory(CGH);
+}
+
+bool HwModePredicates::implies(const HwModePredicates &Other,
+                               const CodeGenHwModes &CGH) const {
+  for (const auto &L : Other.FeaturesSet) {
+    HwModePredicates Combined(*this);
+    Combined.FeaturesSet.insert({L.Feature, !L.IsNot});
+    if (!Combined.isSelfContradictory(CGH))
+      return false;
+  }
+  for (const auto &C : Other.AnyOfFeatureSets) {
+    HwModePredicates Combined(*this);
+    for (const auto &L : C) {
+      Combined.FeaturesSet.insert({L.Feature, !L.IsNot});
+    }
+    if (!Combined.isSelfContradictory(CGH))
+      return false;
+  }
+  return true;
 }
 
 CodeGenHwModes::~CodeGenHwModes() = default;
@@ -194,11 +230,46 @@ CodeGenHwModes::CodeGenHwModes(const RecordKeeper &RK) : Records(RK) {
     (void)P;
   }
 
+  // Build transitive implication map for subtarget features.
+  std::map<StringRef, std::vector<const Record *>> ImmediateImplies;
+  for (const Record *FR : Records.getAllDerivedDefinitions("SubtargetFeature")) {
+    if (FR->getValue("Implies")) {
+      ImmediateImplies[FR->getName()] = FR->getValueAsListOfDefs("Implies");
+    }
+  }
+
+  std::function<void(StringRef)> GetTransitive = [&](StringRef Feat) {
+    if (TransitiveImplies.count(Feat))
+      return;
+    auto &Set = TransitiveImplies[Feat];
+    auto It = ImmediateImplies.find(Feat);
+    if (It != ImmediateImplies.end()) {
+      for (const Record *ImpliedRec : It->second) {
+        StringRef ImpliedName = ImpliedRec->getName();
+        Set.insert(ImpliedName);
+        GetTransitive(ImpliedName);
+        const auto &ImpliedTransitive = TransitiveImplies[ImpliedName];
+        Set.insert(ImpliedTransitive.begin(), ImpliedTransitive.end());
+      }
+    }
+  };
+
+  for (const auto &Pair : ImmediateImplies) {
+    GetTransitive(Pair.first);
+  }
+
   // Populate the semantic predicates cache.
   PredicatesByMode.resize(getNumModeIds());
   PredicatesByMode[DefaultMode] = HwModePredicates::createForDefaultMode(*this);
-  for (unsigned M = 1; M < getNumModeIds(); ++M) {
+  for (const Record *R : Records.getAllDerivedDefinitions("HwMode")) {
+    if (R->getName() == DefaultModeName)
+      continue;
+    unsigned M = getHwModeId(R);
     PredicatesByMode[M] = HwModePredicates(getMode(M).Predicates);
+    if (PredicatesByMode[M].isSelfContradictory(*this)) {
+      PrintWarning(R->getLoc(), "HwMode '" + R->getName() +
+                                    "' has self-contradictory predicates");
+    }
   }
 }
 
@@ -263,7 +334,7 @@ CodeGenHwModes::resolveModeSelect(const Record *SelectRec,
     // Use the pre-computed semantic predicates from cache.
     const HwModePredicates &ModePreds = PredicatesByMode[ModeId];
 
-    if (!ModePreds.conflictsWith(PatPredsSet)) {
+    if (!ModePreds.conflictsWith(PatPredsSet, *this)) {
       LLVM_DEBUG(dbgs() << "  HwMode '" << getModeName(ModeId, true)
                         << "' is compatible -> " << Obj->getName() << "\n");
       ResolvedObjects.insert(Obj);
@@ -289,4 +360,13 @@ CodeGenHwModes::resolveModeSelect(const Record *SelectRec,
                << SelectRec->getName() << "'\n");
   }
   return nullptr;
+}
+
+bool CodeGenHwModes::featureImplies(StringRef A, StringRef B) const {
+  if (A == B)
+    return true;
+  auto It = TransitiveImplies.find(A);
+  if (It == TransitiveImplies.end())
+    return false;
+  return It->second.count(B);
 }

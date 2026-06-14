@@ -9,6 +9,7 @@
 #ifndef LLVM_UTILS_TABLEGEN_COMMON_DAGISELMATCHER_H
 #define LLVM_UTILS_TABLEGEN_COMMON_DAGISELMATCHER_H
 
+#include "Common/CodeGenHwModes.h"
 #include "Common/InfoByHwMode.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
@@ -609,12 +610,15 @@ private:
 /// not take a node as input.  This is used for subtarget feature checks etc.
 class CheckPatternPredicateMatcher : public Matcher {
   std::string Predicate;
+  HwModePredicates PatPreds;
 
 public:
-  CheckPatternPredicateMatcher(StringRef predicate)
-      : Matcher(CheckPatternPredicate), Predicate(predicate) {}
+  CheckPatternPredicateMatcher(StringRef predicate,
+                               const HwModePredicates &preds)
+      : Matcher(CheckPatternPredicate), Predicate(predicate), PatPreds(preds) {}
 
   StringRef getPredicate() const { return Predicate; }
+  const HwModePredicates &getHwModePredicates() const { return PatPreds; }
 
   static bool classof(const Matcher *N) {
     return N->getKind() == CheckPatternPredicate;

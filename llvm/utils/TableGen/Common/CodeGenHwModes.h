@@ -39,8 +39,10 @@ struct HwModePredicates {
 
   static HwModePredicates createForDefaultMode(const CodeGenHwModes &CGH);
   void add(const HwModePredicates &Other);
-  bool isSelfContradictory();
-  bool conflictsWith(const HwModePredicates &Other) const;
+  bool isSelfContradictory(const CodeGenHwModes &CGH);
+  bool conflictsWith(const HwModePredicates &Other,
+                     const CodeGenHwModes &CGH) const;
+  bool implies(const HwModePredicates &Other, const CodeGenHwModes &CGH) const;
 };
 
 struct HwMode {
@@ -83,6 +85,10 @@ struct CodeGenHwModes {
   }
   unsigned getNumModeIds() const { return Modes.size() + 1; }
   void dump() const;
+  bool featureImplies(StringRef A, StringRef B) const;
+  const std::map<StringRef, std::set<StringRef>> &getTransitiveImplies() const {
+    return TransitiveImplies;
+  }
 
 private:
   const RecordKeeper &Records;
@@ -90,6 +96,7 @@ private:
   std::vector<HwMode> Modes;
   std::map<const Record *, HwModeSelect> ModeSelects;
   std::vector<HwModePredicates> PredicatesByMode;
+  std::map<StringRef, std::set<StringRef>> TransitiveImplies;
 };
 } // namespace llvm
 

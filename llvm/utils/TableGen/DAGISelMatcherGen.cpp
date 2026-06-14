@@ -564,7 +564,7 @@ bool MatcherGen::EmitMatcherCode(unsigned Variant) {
   // feature is around, do the check).
   std::string PredicateCheck = Pattern.getPredicateCheck();
   if (!PredicateCheck.empty())
-    AddMatcher(new CheckPatternPredicateMatcher(PredicateCheck));
+    AddMatcher(new CheckPatternPredicateMatcher(PredicateCheck, Pattern.getHwModePredicates()));
 
   // Now that we've completed the structural type match, emit any ComplexPattern
   // checks (e.g. addrmode matches).  We emit this after the structural match
