@@ -820,7 +820,7 @@ AsmParser::~AsmParser() {
 void AsmParser::printMacroInstantiations() {
   // Print the active macro instantiation stack.
   for (MacroInstantiation *M : reverse(ActiveMacros))
-    printMessage(SrcMgr.getMacroInstantiationLoc(M->InstantiationLoc),
+    printMessage(SrcMgr.getMacroSpellingLoc(M->InstantiationLoc),
                  SourceMgr::DK_Note, "while in macro instantiation");
 }
 
@@ -2848,8 +2848,11 @@ bool AsmParser::handleMacroEntry(MCAsmMacro *M, SMLoc NameLoc) {
   // instantiation.
   OS << ".endmacro\n";
 
+  std::string BufferName =
+      M->Name.empty() ? "<instantiation>"
+                      : (Twine("<macro ") + M->Name + " instantiation>").str();
   std::unique_ptr<MemoryBuffer> Instantiation =
-      MemoryBuffer::getMemBufferCopy(OS.str(), "<instantiation>");
+      MemoryBuffer::getMemBufferCopy(OS.str(), BufferName);
 
   // Create the macro instantiation object and add to the current macro
   // instantiation stack.
@@ -5786,8 +5789,11 @@ void AsmParser::instantiateMacroLikeBody(MCAsmMacro *M, SMLoc DirectiveLoc,
                                          raw_svector_ostream &OS) {
   OS << ".endr\n";
 
+  std::string BufferName =
+      M->Name.empty() ? "<instantiation>"
+                      : (Twine("<macro ") + M->Name + " instantiation>").str();
   std::unique_ptr<MemoryBuffer> Instantiation =
-      MemoryBuffer::getMemBufferCopy(OS.str(), "<instantiation>");
+      MemoryBuffer::getMemBufferCopy(OS.str(), BufferName);
 
   // Create the macro instantiation object and add to the current macro
   // instantiation stack.

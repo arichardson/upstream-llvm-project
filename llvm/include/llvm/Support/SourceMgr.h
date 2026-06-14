@@ -173,12 +173,6 @@ public:
     return Buffers[i - 1].MacroDefLoc;
   }
 
-  unsigned getMacroDefBuf(unsigned i) const {
-    if (SMLoc Loc = getMacroDefLoc(i); Loc.isValid())
-      return FindBufferContainingLoc(Loc);
-    return 0;
-  }
-
   /// Add a new source buffer to this source manager. This takes ownership of
   /// the memory buffer.
   unsigned AddNewSourceBuffer(std::unique_ptr<MemoryBuffer> F,
@@ -312,6 +306,10 @@ public:
   /// Map a virtual macro instantiation location back to the physical
   /// definition/signature location of the macro it was called from.
   LLVM_ABI SMLoc getMacroInstantiationLoc(SMLoc Loc) const;
+
+  /// Map a virtual macro instantiation location back to the physical
+  /// spelling location in the macro definition it was called from.
+  LLVM_ABI SMLoc getMacroSpellingLoc(SMLoc Loc) const;
 };
 
 /// Represents a single fixit, a replacement of one range of text with another.

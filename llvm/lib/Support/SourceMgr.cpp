@@ -321,6 +321,34 @@ SMLoc SourceMgr::getMacroInstantiationLoc(SMLoc Loc) const {
   return Loc;
 }
 
+SMLoc SourceMgr::getMacroSpellingLoc(SMLoc Loc) const {
+  while (true) {
+    if (!Loc.isValid())
+      return Loc;
+    unsigned BufID = FindBufferContainingLoc(Loc);
+    if (!BufID)
+      return Loc;
+    SMLoc MacroDefLoc = getMacroDefLoc(BufID);
+    if (!MacroDefLoc.isValid())
+      return Loc;
+
+    unsigned DefBufID = FindBufferContainingLoc(MacroDefLoc);
+    if (!DefBufID)
+      return Loc;
+
+    unsigned LineInMacro = FindLineNumber(Loc, BufID);
+    unsigned LineOfDef = FindLineNumber(MacroDefLoc, DefBufID);
+    unsigned LineInDef = LineOfDef + LineInMacro;
+
+    const SrcBuffer &DefBuf = Buffers[DefBufID - 1];
+    const char *Ptr = DefBuf.getPointerForLineNumber(LineInDef);
+    if (!Ptr)
+      Loc = MacroDefLoc; // Fallback
+    else
+      Loc = SMLoc::getFromPointer(Ptr);
+  }
+}
+
 SMDiagnostic SourceMgr::GetMessage(SMLoc Loc, SourceMgr::DiagKind Kind,
                                    const Twine &Msg, ArrayRef<SMRange> Ranges,
                                    ArrayRef<SMFixIt> FixIts) const {

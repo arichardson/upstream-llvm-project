@@ -9,11 +9,11 @@
 .endmacro
 
 .test1
-// CHECK-ERRORS: <instantiation>:1:1: error: unknown directive
+// CHECK-ERRORS: <macro .test0 instantiation>:1:1: error: unknown directive
 // CHECK-ERRORS-NEXT: .macrobody0
 // CHECK-ERRORS-NEXT: ^
-// CHECK-ERRORS: {{.*}}macros-darwin.s:7:1: note: while in macro instantiation
-// CHECK-ERRORS-NEXT: .macro .test1
+// CHECK-ERRORS: {{.*}}macros-darwin.s:8:1: note: while in macro instantiation
+// CHECK-ERRORS-NEXT: .test0
 // CHECK-ERRORS-NEXT: ^
 // CHECK-ERRORS: {{.*}}macros-darwin.s:11:1: note: while in macro instantiation
 // CHECK-ERRORS-NEXT: .test1

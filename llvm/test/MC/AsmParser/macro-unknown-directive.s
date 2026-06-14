@@ -8,11 +8,11 @@
 ##   are reported correctly (e.g. matching `.macrobody0` at column 7 on line 2).
 
 
-#      CHECK:<instantiation>:2:7: error: unknown directive
+#      CHECK:<macro .test0 instantiation>:2:7: error: unknown directive
 # CHECK-NEXT:{{^      }}.macrobody0
 # CHECK-NEXT:{{^      }}^
-# CHECK-NEXT:{{.*}}macro-unknown-directive.s:24:1: note: while in macro instantiation
-# CHECK-NEXT:{{^}}.macro .test1
+# CHECK-NEXT:{{.*}}macro-unknown-directive.s:26:1: note: while in macro instantiation
+# CHECK-NEXT:{{^  }}.test0
 # CHECK-NEXT:{{^}}^
 # CHECK-NEXT:{{.*}}macro-unknown-directive.s:29:1: note: while in macro instantiation
 # CHECK-NEXT:{{^}}.test1
@@ -28,7 +28,7 @@
 
 .test1
 
-#      CHECK:<instantiation>:1:35: error: literal value out of range for directive
+#      CHECK:<macro test_long_arg instantiation>:1:35: error: literal value out of range for directive
 # CHECK-NEXT:{{^}}mov extremely_long_register_name, 9999999999999999999999999999999999
 # CHECK-NEXT:{{^                                  }}^
 # CHECK-NEXT:{{.*}}macro-unknown-directive.s:42:1: note: while in macro instantiation
