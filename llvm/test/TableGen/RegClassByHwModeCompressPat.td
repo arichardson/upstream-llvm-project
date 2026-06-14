@@ -11,6 +11,8 @@ def NotPtr64 : Predicate<"!Subtarget->isPtr64()">,
 defvar Ptr32 = DefaultMode;
 def Ptr64 : HwMode<[IsPtr64]>;
 def PtrRC : RegClassByHwMode<[Ptr32, Ptr64], [XRegs, YRegs]>;
+// Define a subclass of PtrRC to test type compatibility check for HwMode-dependent register classes.
+// PtrRCSub is a subclass of PtrRC in all modes because XRegsSub is subclass of XRegs, and YRegsSub is subclass of YRegs.
 def XRegsSub : RegisterClass<"MyTarget", [i64], 64, (add X1, X2)>;
 def YRegsSub : RegisterClass<"MyTarget", [i64], 64, (add Y1, Y2)>;
 def PtrRCSub : RegClassByHwMode<[Ptr32, Ptr64], [XRegsSub, YRegsSub]>;
@@ -95,6 +97,9 @@ def : CompressPat<(PTR_MOV PtrRC:$dst, PtrRC:$dst),
                   (PTR_MOV_TIED PtrRC:$dst)>;
 def : CompressPat<(PTR_MOV PtrRC:$dst, PtrRC:$src),
                   (PTR_MOV_SMALL PtrRC:$dst, PtrRC:$src)>;
+// Test type compatibility when both pattern and instruction operands are mode-dependent
+// but different register classes. PTR_MOV expects PtrRC, but the pattern uses PtrRCSub.
+// This is allowed because PtrRCSub is a subclass of PtrRC in all modes.
 def : CompressPat<(PTR_MOV PtrRCSub:$dst, PtrRCSub:$src),
                   (PTR_MOV_SMALL PtrRCSub:$dst, PtrRCSub:$src)>;
 
