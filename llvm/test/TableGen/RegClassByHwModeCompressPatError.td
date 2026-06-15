@@ -4,6 +4,7 @@
 // RUN: not llvm-tblgen --gen-compress-inst-emitter -I %p/../../include -I %S %s -DERROR_CONTRADICTORY_PAT 2>&1 | FileCheck %s --check-prefix=CONTRADICTORY_PAT
 // RUN: not llvm-tblgen --gen-compress-inst-emitter -I %p/../../include -I %S %s -DERROR_WRONG_PRED 2>&1 | FileCheck %s --check-prefix=WRONG_PRED
 // RUN: not llvm-tblgen --gen-compress-inst-emitter -I %p/../../include -I %S %s -DERROR_CONTRADICTORY_MODE 2>&1 | FileCheck %s --check-prefix=CONTRADICTORY_MODE
+// RUN: not llvm-tblgen --gen-compress-inst-emitter -I %p/../../include -I %S %s -DERROR_INCOMPATIBLE_HWMODE 2>&1 | FileCheck %s --check-prefix=INCOMPATIBLE_HWMODE
 
 include "Common/RegClassByHwModeCommon.td"
 
@@ -24,6 +25,7 @@ def PtrRC : RegClassByHwMode<[Ptr32, BadMode], [XRegs, YRegs]>;
 #else
 def PtrRC : RegClassByHwMode<[Ptr32, Ptr64], [XRegs, YRegs]>;
 #endif
+def OtherRC : RegClassByHwMode<[Ptr32, Ptr64], [YRegs, XRegs]>;
 
 def X_MOV : TestInstruction {
   let OutOperandList = (outs XRegs:$dst);
@@ -37,6 +39,13 @@ def Y_MOV : TestInstruction {
   let InOperandList = (ins YRegs:$src);
   let AsmString = "y_mov $dst, $src";
   let opcode = 5;
+}
+
+def PTR_MOV : TestInstruction {
+  let OutOperandList = (outs PtrRC:$dst);
+  let InOperandList = (ins PtrRC:$src);
+  let AsmString = "ptr_mov $dst, $src";
+  let opcode = 3;
 }
 
 def PTR_MOV_SMALL : TestInstruction {
@@ -80,6 +89,15 @@ let Predicates = [IsPtr64] in
 def : CompressPat<(Y_MOV YRegs:$dst, YRegs:$src),
                   (PTR_MOV_SMALL YRegs:$dst, YRegs:$src)>;
 // CONTRADICTORY_MODE: {{.*}}RegClassByHwModeCompressPatError.td:[[@LINE-2]]:{{[0-9]+}}: error: Error in Dag '{{.*}}'. Operand 'dst' has type 'YRegs' which does not match the type 'PtrRC' in the corresponding instruction operand!
+#endif
+
+#ifdef ERROR_INCOMPATIBLE_HWMODE
+// OtherRC has YRegs for Ptr32 and XRegs for Ptr64.
+// PtrRC has XRegs for Ptr32 and YRegs for Ptr64.
+// They are incompatible because they don't have subclass relationship in all modes.
+def : CompressPat<(PTR_MOV OtherRC:$dst, OtherRC:$src),
+                  (PTR_MOV_SMALL PtrRC:$dst, PtrRC:$src)>;
+// INCOMPATIBLE_HWMODE: {{.*}}RegClassByHwModeCompressPatError.td:[[@LINE-2]]:{{[0-9]+}}: error: Error in Dag '{{.*}}'. Operand 'dst' has type 'OtherRC' which does not match the type 'PtrRC' in the corresponding instruction operand!
 #endif
 
 def MyTargetISA : InstrInfo;

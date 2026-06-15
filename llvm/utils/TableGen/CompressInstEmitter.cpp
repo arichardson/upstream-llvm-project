@@ -203,17 +203,15 @@ bool CompressInstEmitter::validateTypes(const Record *DagOpType,
     InstOpType = ResolvedInst;
   } else if (DagOpType->isSubClassOf("RegClassByHwMode") &&
              InstOpType->isSubClassOf("RegClassByHwMode")) {
-    std::vector<const Record *> DagModes = DagOpType->getValueAsListOfDefs("Modes");
-    std::vector<const Record *> InstModes = InstOpType->getValueAsListOfDefs("Modes");
-    if (DagModes != InstModes)
+    RegClassByHwMode DagRC(DagOpType, Target.getRegBank());
+    RegClassByHwMode InstRC(InstOpType, Target.getRegBank());
+    if (DagRC.size() != InstRC.size())
       return false;
-    std::vector<const Record *> DagObjects = DagOpType->getValueAsListOfDefs("Objects");
-    std::vector<const Record *> InstObjects = InstOpType->getValueAsListOfDefs("Objects");
-    assert(DagObjects.size() == InstObjects.size() && "Size mismatch but modes matched?");
-    for (unsigned i = 0; i < DagObjects.size(); ++i) {
-      const CodeGenRegisterClass &RC = Target.getRegisterClass(InstObjects[i]);
-      const CodeGenRegisterClass &SubRC = Target.getRegisterClass(DagObjects[i]);
-      if (!RC.hasSubClass(&SubRC))
+    for (const auto &[Mode, DagClass] : DagRC) {
+      if (!InstRC.hasMode(Mode))
+        return false;
+      const CodeGenRegisterClass *InstClass = InstRC.get(Mode);
+      if (!InstClass->hasSubClass(DagClass))
         return false;
     }
     return true;
