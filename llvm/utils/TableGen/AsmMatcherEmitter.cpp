@@ -2523,6 +2523,46 @@ static void emitRegisterMatchErrorFunc(AsmMatcherInfo &Info, raw_ostream &OS) {
 /// emitValidateOperandClass - Emit the function to validate an operand class.
 static void emitValidateOperandClass(const CodeGenTarget &Target,
                                      AsmMatcherInfo &Info, raw_ostream &OS) {
+  const CodeGenRegBank &RegBank = Target.getRegBank();
+  ArrayRef<const Record *> RegClassesByHwMode = Target.getAllRegClassByHwMode();
+  unsigned NumClassesByHwMode = RegClassesByHwMode.size();
+
+  if (!RegClassesByHwMode.empty()) {
+    const CodeGenHwModes &CGH = Target.getHwModes();
+    unsigned NumModes = CGH.getNumModeIds();
+
+    OS << indent(0)
+       << "static constexpr MatchClassKind RegClassByHwModeMatchTable["
+       << NumModes << "][" << RegClassesByHwMode.size() << "] = {\n";
+
+    for (unsigned M = 0; M < NumModes; ++M) {
+      OS << indent(2) << "{ // " << CGH.getModeName(M, /*IncludeDefault=*/true)
+         << '\n';
+      for (unsigned I = 0; I != NumClassesByHwMode; ++I) {
+        const Record *Class = RegClassesByHwMode[I];
+        const HwModeSelect &ModeSelect = CGH.getHwModeSelect(Class);
+
+        auto FoundMode =
+            find_if(ModeSelect.Items, [=](const HwModeSelect::PairType P) {
+              return P.first == M;
+            });
+
+        if (FoundMode == ModeSelect.Items.end()) {
+          OS << indent(4) << "InvalidMatchClass, // Missing mode entry for "
+             << Class->getName() << "\n";
+        } else {
+          const CodeGenRegisterClass *RegClass =
+              RegBank.getRegClass(FoundMode->second);
+          const ClassInfo *CI =
+              Info.RegisterClassClasses.at(RegClass->getDef());
+          OS << indent(4) << CI->Name << ", // " << Class->getName() << "\n";
+        }
+      }
+      OS << indent(2) << "},\n";
+    }
+    OS << indent(0) << "};\n\n";
+  }
+
   OS << "static unsigned validateOperandClass(MCParsedAsmOperand &GOp, "
      << "MatchClassKind Kind, const MCSubtargetInfo &STI) {\n";
   OS << "  " << Info.Target.getName() << "Operand &Operand = ("
@@ -2564,60 +2604,16 @@ static void emitValidateOperandClass(const CodeGenTarget &Target,
   }
   OS << "  } // end switch (Kind)\n\n";
 
-  const CodeGenRegBank &RegBank = Target.getRegBank();
-  ArrayRef<const Record *> RegClassesByHwMode = Target.getAllRegClassByHwMode();
-  unsigned NumClassesByHwMode = RegClassesByHwMode.size();
-
   if (!RegClassesByHwMode.empty()) {
     OS << "  if (Operand.isReg() && Kind > MCK_LAST_REGISTER &&"
           " Kind <= MCK_LAST_REGCLASS_BY_HWMODE) {\n";
-
-    const CodeGenHwModes &CGH = Target.getHwModes();
-    unsigned NumModes = CGH.getNumModeIds();
-
-    OS << indent(4)
-       << "static constexpr MatchClassKind RegClassByHwModeMatchTable["
-       << NumModes << "][" << RegClassesByHwMode.size() << "] = {\n";
-
-    // TODO: If the instruction predicates can statically resolve which hwmode,
-    // directly match the register class
-    for (unsigned M = 0; M < NumModes; ++M) {
-      OS << indent(6) << "{ // " << CGH.getModeName(M, /*IncludeDefault=*/true)
-         << '\n';
-      for (unsigned I = 0; I != NumClassesByHwMode; ++I) {
-        const Record *Class = RegClassesByHwMode[I];
-        const HwModeSelect &ModeSelect = CGH.getHwModeSelect(Class);
-
-        auto FoundMode =
-            find_if(ModeSelect.Items, [=](const HwModeSelect::PairType P) {
-              return P.first == M;
-            });
-
-        if (FoundMode == ModeSelect.Items.end()) {
-          OS << indent(8) << "InvalidMatchClass, // Missing mode entry for "
-             << Class->getName() << "\n";
-        } else {
-          const CodeGenRegisterClass *RegClass =
-              RegBank.getRegClass(FoundMode->second);
-          const ClassInfo *CI =
-              Info.RegisterClassClasses.at(RegClass->getDef());
-          OS << indent(8) << CI->Name << ", // " << Class->getName() << "\n";
-        }
-      }
-
-      OS << indent(6) << "},\n";
-    }
-
-    OS << indent(4) << "};\n\n";
-
     OS << indent(4)
        << "static_assert(MCK_LAST_REGCLASS_BY_HWMODE - MCK_LAST_REGISTER == "
        << NumClassesByHwMode << ");\n";
-
     OS << indent(4)
        << "const unsigned HwMode = "
-          "STI.getHwMode(MCSubtargetInfo::HwMode_RegInfo);\n"
-       << indent(4)
+          "STI.getHwMode(MCSubtargetInfo::HwMode_RegInfo);\n";
+    OS << indent(4)
        << "Kind = RegClassByHwModeMatchTable[HwMode][Kind - (MCK_LAST_REGISTER "
           "+ 1)];\n"
           "  }\n\n";
