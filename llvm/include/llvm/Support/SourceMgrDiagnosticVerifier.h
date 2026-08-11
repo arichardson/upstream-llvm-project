@@ -16,12 +16,15 @@
 #ifndef LLVM_SUPPORT_SOURCEMGRDIAGNOSTICVERIFIER_H
 #define LLVM_SUPPORT_SOURCEMGRDIAGNOSTICVERIFIER_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/SourceMgr.h"
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace llvm {
 
@@ -83,7 +86,17 @@ public:
     Ignored,
   };
 
-  SourceMgrDiagnosticVerifier() = default;
+  /// \param prefixes The comment prefixes that introduce an expected
+  /// diagnostic, e.g. \c {"expected"} to recognize 'expected-error'. Matched
+  /// literally, not as a regex.
+  /// \param commentPrefixes If non-empty, only text at or after the earliest
+  /// occurrence of one of these strings on a line is scanned for expected
+  /// diagnostics, so a magic string that happens to appear outside of a
+  /// comment (e.g. in an instruction operand) is ignored. If empty, the
+  /// whole line is eligible.
+  explicit SourceMgrDiagnosticVerifier(
+      ArrayRef<std::string> prefixes = {"expected"},
+      ArrayRef<std::string> commentPrefixes = {});
 
   /// Computes and caches the list of expected diagnostics for \p buf, if not
   /// already cached. Returns the (mutable) cached list.
@@ -122,9 +135,13 @@ public:
   bool verify(raw_ostream &os, SourceMgr &mgr);
 
 private:
-  /// Regex used to recognize 'expected-<kind>' comments.
-  Regex expected{"expected-(error|note|remark|warning)(-re)? "
-                 "*(@([+-][0-9]+|above|below|unknown))? *{{(.*)}}$"};
+  /// Regex used to recognize '<prefix>-<kind>' comments, built from the
+  /// \p prefixes passed to the constructor.
+  Regex expected;
+
+  /// If non-empty, only text at or after the earliest occurrence of one of
+  /// these strings on a line is eligible to match \p expected.
+  std::vector<std::string> commentPrefixes;
 
   /// The expected diagnostics for each buffer that has been scanned so far,
   /// keyed by buffer identifier (i.e. file name).

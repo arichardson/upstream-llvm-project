@@ -12,6 +12,21 @@
 
 using namespace llvm;
 
+SourceMgrDiagnosticVerifier::SourceMgrDiagnosticVerifier(
+    ArrayRef<std::string> prefixes, ArrayRef<std::string> commentPrefixes)
+    : commentPrefixes(commentPrefixes.begin(), commentPrefixes.end()) {
+  std::string prefixAlt;
+  raw_string_ostream prefixOS(prefixAlt);
+  for (size_t i = 0, e = prefixes.size(); i != e; ++i) {
+    if (i)
+      prefixOS << '|';
+    prefixOS << Regex::escape(prefixes[i]);
+  }
+  expected = Regex("(" + prefixAlt +
+                    ")-(error|note|remark|warning)(-re)? "
+                    "*(@([+-][0-9]+|above|below|unknown))? *{{(.*)}}$");
+}
+
 /// Given a diagnostic kind, return a human readable string for it.
 static StringRef getDiagKindStr(SourceMgr::DiagKind kind) {
   switch (kind) {
@@ -97,12 +112,29 @@ SourceMgrDiagnosticVerifier::computeExpectedDiags(raw_ostream &os,
   // The indices of designators that apply to the next non designator line.
   SmallVector<unsigned, 1> designatorsForNextLine;
 
-  // Scan the file for expected-* designators.
+  // Scan the file for <prefix>-* designators.
   SmallVector<StringRef, 100> lines;
   buf->getBuffer().split(lines, '\n');
   for (unsigned lineNo = 0, e = lines.size(); lineNo < e; ++lineNo) {
-    SmallVector<StringRef, 4> matches;
-    if (!expected.match(lines[lineNo].rtrim(), &matches)) {
+    // If comment-scoping is enabled, only the text at or after the earliest
+    // recognized comment prefix on the line is eligible to match, so a magic
+    // string appearing outside of a comment (e.g. in an instruction operand)
+    // is ignored.
+    StringRef line = lines[lineNo].rtrim();
+    if (!commentPrefixes.empty()) {
+      size_t commentStart = StringRef::npos;
+      for (StringRef prefix : commentPrefixes) {
+        size_t pos = line.find(prefix);
+        if (pos != StringRef::npos &&
+            (commentStart == StringRef::npos || pos < commentStart))
+          commentStart = pos;
+      }
+      line = commentStart == StringRef::npos ? StringRef()
+                                              : line.substr(commentStart);
+    }
+
+    SmallVector<StringRef, 5> matches;
+    if (!expected.match(line, &matches)) {
       // Check for designators that apply to this line.
       if (!designatorsForNextLine.empty()) {
         for (unsigned diagIndex : designatorsForNextLine)
@@ -113,29 +145,29 @@ SourceMgrDiagnosticVerifier::computeExpectedDiags(raw_ostream &os,
       continue;
     }
 
-    // Point to the start of expected-*.
+    // Point to the start of <prefix>-*.
     SMLoc expectedStart = SMLoc::getFromPointer(matches[0].data());
 
     SourceMgr::DiagKind kind;
-    if (matches[1] == "error")
+    if (matches[2] == "error")
       kind = SourceMgr::DK_Error;
-    else if (matches[1] == "warning")
+    else if (matches[2] == "warning")
       kind = SourceMgr::DK_Warning;
-    else if (matches[1] == "remark")
+    else if (matches[2] == "remark")
       kind = SourceMgr::DK_Remark;
     else {
-      assert(matches[1] == "note");
+      assert(matches[2] == "note");
       kind = SourceMgr::DK_Note;
     }
-    ExpectedDiag record(kind, lineNo + 1, expectedStart, matches[5]);
+    ExpectedDiag record(kind, lineNo + 1, expectedStart, matches[6]);
 
     // Check to see if this is a regex match, i.e. it includes the `-re`.
-    if (!matches[2].empty() && !record.computeRegex(os, mgr)) {
+    if (!matches[3].empty() && !record.computeRegex(os, mgr)) {
       ok = false;
       continue;
     }
 
-    StringRef offsetMatch = matches[3];
+    StringRef offsetMatch = matches[4];
     if (!offsetMatch.empty()) {
       offsetMatch = offsetMatch.drop_front(1);
 
