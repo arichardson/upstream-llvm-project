@@ -174,12 +174,29 @@ SourceMgrDiagnosticVerifier::computeExpectedDiags(raw_ostream &os,
       // Get the integer value without the @ and +/- prefix.
       if (offsetMatch[0] == '+' || offsetMatch[0] == '-') {
         int offset;
-        offsetMatch.drop_front().getAsInteger(0, offset);
+        // The regex only ever captures decimal digits here, so parse as
+        // decimal explicitly: a leading zero (e.g. '@+08') would otherwise
+        // be mis-parsed as octal by getAsInteger's radix auto-detection
+        // (and '08' isn't valid octal, so that already-broken corner case
+        // would silently discard the offset instead of reporting an error).
+        if (offsetMatch.drop_front().getAsInteger(10, offset)) {
+          ok = false;
+          record.emitError(os, mgr, "invalid line offset '" + offsetMatch + "'");
+          continue;
+        }
 
-        if (offsetMatch.front() == '+')
+        if (offsetMatch.front() == '+') {
           record.lineNo += offset;
-        else
+        } else if (static_cast<unsigned>(offset) >= record.lineNo) {
+          // Line numbers are 1-based, so an offset that would take lineNo to
+          // 0 or below is out of range.
+          ok = false;
+          record.emitError(os, mgr, "line offset '" + offsetMatch +
+                                        "' is before the start of the file");
+          continue;
+        } else {
           record.lineNo -= offset;
+        }
       } else if (offsetMatch.consume_front("unknown")) {
         // This is matching unknown locations.
         record.fileLoc = SMLoc();
