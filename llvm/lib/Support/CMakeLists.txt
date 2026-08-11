@@ -258,6 +258,7 @@ add_llvm_component_library(LLVMSupport
   SmallPtrSet.cpp
   SmallVector.cpp
   SourceMgr.cpp
+  SourceMgrDiagnosticVerifier.cpp
   SpecialCaseList.cpp
   Statistic.cpp
   StringExtras.cpp
