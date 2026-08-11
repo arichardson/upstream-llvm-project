@@ -253,7 +253,7 @@ SourceMgrDiagnosticVerifier::MatchResult SourceMgrDiagnosticVerifier::process(
   }
 
   if (!reportUnexpected)
-    return nearMiss ? MatchResult::NearMiss : MatchResult::Unexpected;
+    return MatchResult::Ignored;
 
   ok = false;
 
