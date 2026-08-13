@@ -290,6 +290,15 @@ SourceMgrDiagnosticVerifier::MatchResult SourceMgrDiagnosticVerifier::process(
 }
 
 bool SourceMgrDiagnosticVerifier::verify(raw_ostream &os, SourceMgr &mgr) {
+  // Scan any buffers that process() never had a reason to look at (e.g. an
+  // included file where the diagnostic its 'expected-*' comment names never
+  // actually fired): otherwise that expectation would never be recorded, and
+  // so never reported as missing below, letting verification silently
+  // pass when it shouldn't. computeExpectedDiags is idempotent, so
+  // re-scanning an already-known buffer here is harmless.
+  for (unsigned i = 0, e = mgr.getNumBuffers(); i != e; ++i)
+    (void)computeExpectedDiags(os, mgr, mgr.getMemoryBuffer(i + 1));
+
   // Verify that all expected errors were seen.
   auto checkExpectedDiags = [&](ExpectedDiag &diag) {
     if (!diag.matched) {

@@ -25,6 +25,14 @@
 # RUN: not llvm-mc -triple riscv32 -verify %t/missing.s 2>&1 \
 # RUN:   | FileCheck %t/missing.s --check-prefix=MISSING
 
+## An expected-error in a '.include'd file that's never produced also fails
+## verification: the included file's buffer isn't known to SourceMgr until
+## it's actually .include'd during parsing, so process() never has an actual
+## diagnostic in it to trigger scanning it. This must be caught by verify()
+## re-scanning all of SourceMgr's buffers, not just the ones process() saw.
+# RUN: not llvm-mc -triple riscv32 -verify -I %t %t/main-include.s 2>&1 \
+# RUN:   | FileCheck %t/included-missing.s --check-prefix=INCLUDE-MISSING
+
 ## A directive-looking magic string outside of a comment is not treated as a
 ## directive, so the resulting diagnostic is still unexpected.
 # RUN: not llvm-mc -triple riscv32 -verify %t/outside-comment.s 2>&1 \
@@ -76,6 +84,14 @@
 addi a0, a0, 1
 # expected-error@-1 {{this will never happen}}
 # MISSING: expected error "this will never happen" was not produced
+
+#--- main-include.s
+.include "included-missing.s"
+
+#--- included-missing.s
+addi a0, a0, 1
+# expected-error@-1 {{this will never happen}}
+# INCLUDE-MISSING: expected error "this will never happen" was not produced
 
 #--- outside-comment.s
 .foo_directive  expected-error {{unknown directive}}
