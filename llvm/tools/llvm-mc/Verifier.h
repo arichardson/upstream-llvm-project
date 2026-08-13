@@ -35,6 +35,11 @@ public:
   MCVerifier(SourceMgr &SrcMgr, ArrayRef<std::string> Prefixes,
              ArrayRef<std::string> CommentPrefixes);
 
+  /// Clears SrcMgr's diagnostic handler if it's still this object's, so a
+  /// SourceMgr that outlives this MCVerifier is never left with a dangling
+  /// handler pointing at freed memory.
+  ~MCVerifier();
+
   /// Installs this as the diagnostic handler for both the SourceMgr passed to
   /// the constructor and \p Ctx, so diagnostics reported through either are
   /// checked.

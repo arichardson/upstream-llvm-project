@@ -44,10 +44,22 @@ MCVerifier::MCVerifier(SourceMgr &SrcMgr, ArrayRef<std::string> Prefixes,
   // diagnostic that's never actually produced (e.g. because the run never
   // reports any diagnostic at all) is still recorded and reported as missing
   // by verify(), rather than never being noticed since process() was never
-  // called for that buffer.
+  // called for that buffer. Guarded like every other call into Verifier in
+  // this file: a malformed directive (e.g. an invalid '-re' regex) makes
+  // computeExpectedDiags print through SrcMgr, which would otherwise re-enter
+  // installHandlers's handler if the constructor ever ran after it (it
+  // currently never does, at the sole call site in llvm-mc.cpp).
+  ScopedHandlerDisable Guard(SrcMgr);
   for (unsigned I = 0, E = SrcMgr.getNumBuffers(); I != E; ++I)
     (void)Verifier.computeExpectedDiags(errs(), SrcMgr,
                                         SrcMgr.getMemoryBuffer(I + 1));
+}
+
+MCVerifier::~MCVerifier() {
+  // SrcMgr may outlive this MCVerifier; don't leave its handler pointing at
+  // freed memory.
+  if (SrcMgr.getDiagHandler() == &MCVerifier::handleSourceMgrDiag)
+    SrcMgr.setDiagHandler(nullptr, nullptr);
 }
 
 void MCVerifier::installHandlers(MCContext &Ctx) {
