@@ -108,6 +108,10 @@ SourceMgrDiagnosticVerifier::computeExpectedDiags(raw_ostream &os,
   // If the buffer is invalid, return an empty list.
   if (!buf)
     return {};
+  // Idempotent: a buffer that's already been scanned is returned as-is,
+  // rather than being rescanned and appending duplicate entries.
+  if (auto maybeDiags = getExpectedDiags(buf->getBufferIdentifier()))
+    return *maybeDiags;
   auto &expectedDiags = expectedDiagsPerFile[buf->getBufferIdentifier()];
 
   // The number of the last line that did not correlate to a designator.
@@ -242,12 +246,8 @@ SourceMgrDiagnosticVerifier::MatchResult SourceMgrDiagnosticVerifier::process(
   if (hasLoc) {
     // If the buffer couldn't be resolved, `diags` stays empty: a diagnostic
     // with a location in an unknown file can never match anything.
-    if (buf) {
-      if (auto maybeDiags = getExpectedDiags(buf->getBufferIdentifier()))
-        diags = *maybeDiags;
-      else
-        diags = computeExpectedDiags(os, mgr, buf);
-    }
+    if (buf)
+      diags = computeExpectedDiags(os, mgr, buf);
   } else {
     diags = expectedUnknownLocDiags;
   }
