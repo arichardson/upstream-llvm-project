@@ -88,7 +88,7 @@ public:
 
   /// \param prefixes The comment prefixes that introduce an expected
   /// diagnostic, e.g. \c {"expected"} to recognize 'expected-error'. Matched
-  /// literally, not as a regex.
+  /// literally, not as a regex. Must not contain an empty string.
   /// \param commentPrefixes If non-empty, only text at or after the earliest
   /// occurrence of one of these strings on a line is scanned for expected
   /// diagnostics, so a magic string that happens to appear outside of a

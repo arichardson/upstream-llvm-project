@@ -484,10 +484,14 @@ int main(int argc, char **argv) {
 
   std::unique_ptr<MCVerifier> Verifier;
   if (VerifyEnabled) {
-    std::vector<std::string> Prefixes(Verify.begin(), Verify.end());
-    // A bare '-verify' (no '=value') and an explicit empty prefix list both
-    // mean "use the default prefix".
-    if (Prefixes.empty() || (Prefixes.size() == 1 && Prefixes[0].empty()))
+    std::vector<std::string> Prefixes;
+    for (StringRef Prefix : Verify)
+      if (!Prefix.empty())
+        Prefixes.push_back(Prefix.str());
+    // A bare '-verify' (no '=value'), an explicit empty prefix list, and a
+    // list that parses to only empty strings (e.g. a stray comma) all mean
+    // "use the default prefix".
+    if (Prefixes.empty())
       Prefixes = {"expected"};
 
     // Only text at or after a recognized comment marker is scanned for

@@ -18,6 +18,10 @@ SourceMgrDiagnosticVerifier::SourceMgrDiagnosticVerifier(
   std::string prefixAlt;
   raw_string_ostream prefixOS(prefixAlt);
   for (size_t i = 0, e = prefixes.size(); i != e; ++i) {
+    // An empty prefix would add an empty alternative to the regex below,
+    // letting a bare '-error {{...}}' comment (with no prefix word at all)
+    // match. Callers must not pass one.
+    assert(!prefixes[i].empty() && "prefixes must be non-empty");
     if (i)
       prefixOS << '|';
     prefixOS << Regex::escape(prefixes[i]);
