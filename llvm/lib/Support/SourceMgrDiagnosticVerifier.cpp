@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/SourceMgrDiagnosticVerifier.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -17,14 +18,13 @@ SourceMgrDiagnosticVerifier::SourceMgrDiagnosticVerifier(
     : commentPrefixes(commentPrefixes.begin(), commentPrefixes.end()) {
   std::string prefixAlt;
   raw_string_ostream prefixOS(prefixAlt);
-  for (size_t i = 0, e = prefixes.size(); i != e; ++i) {
+  ListSeparator sep("|");
+  for (const std::string &prefix : prefixes) {
     // An empty prefix would add an empty alternative to the regex below,
     // letting a bare '-error {{...}}' comment (with no prefix word at all)
     // match. Callers must not pass one.
-    assert(!prefixes[i].empty() && "prefixes must be non-empty");
-    if (i)
-      prefixOS << '|';
-    prefixOS << Regex::escape(prefixes[i]);
+    assert(!prefix.empty() && "prefixes must be non-empty");
+    prefixOS << sep << Regex::escape(prefix);
   }
   expected = Regex("(" + prefixAlt +
                     ")-(error|note|remark|warning)(-re)? "
