@@ -41,8 +41,10 @@ public:
   ~MCVerifier();
 
   /// Installs this as the diagnostic handler for both the SourceMgr passed to
-  /// the constructor and \p Ctx, so diagnostics reported through either are
-  /// checked.
+  /// the constructor and \p Ctx. Both are needed: most parser/disassembler
+  /// diagnostics go through SourceMgr, but some (e.g. the DWARF CFI checker's,
+  /// via MCContext::reportError/reportWarning) are reported directly through
+  /// MCContext and never reach SourceMgr's handler at all.
   void installHandlers(MCContext &Ctx);
 
   /// Reports any expected diagnostic that was never produced, and returns
