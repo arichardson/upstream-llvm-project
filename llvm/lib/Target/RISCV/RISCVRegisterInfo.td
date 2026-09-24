@@ -384,6 +384,7 @@ def GPRNoX0 : GPRRegisterClass<(sub GPR, X0)> {
 def YGPRNoX0 : YGPRRegisterClass<(sub YGPR, X0_Y)> {
   let DiagnosticType = GPRNoX0.DiagnosticType;
 }
+defm PtrNoX0 : PtrRegClassByHwMode<GPRNoX0, YGPRNoX0>;
 
 def GPRNoX2 : GPRRegisterClass<(sub GPR, X2)> {
   let DiagnosticType = "InvalidRegClassGPRNoX2";
