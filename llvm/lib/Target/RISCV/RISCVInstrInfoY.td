@@ -194,6 +194,13 @@ def : CompressPat<(SY YGPR:$rs2, SPMem:$rs1, uimm9_lsb000:$imm),
                   (C_SYSP_RV32 YGPR:$rs2, SPMem:$rs1, uimm9_lsb000:$imm)>;
 } // Predicates = [HasStdExtZca, IsStdExtYCapMode, IsRV32]
 
+let Predicates = [HasStdExtZca, IsStdExtYCapMode] in {
+def : CompressPat<(YADDI YGPRC:$rd, SP_Y:$rs1, uimm10_lsb00nonzero:$imm),
+                  (C_ADDI4SPN YGPRC:$rd, SP_Y:$rs1, uimm10_lsb00nonzero:$imm)>;
+def : CompressPat<(YADDI X2_Y, X2_Y, simm10_lsb0000nonzero:$imm),
+                  (C_ADDI16SP X2_Y, simm10_lsb0000nonzero:$imm)>;
+} // Predicates = [HasStdExtZca, IsStdExtYCapMode]
+
 let Predicates = [HasStdExtZca, IsStdExtYCapMode, IsRV64] in {
 // DecoderNamespace needed since RVY64 reuses Zcd/Zcm* encodings
 let DecoderNamespace = "RVY64Only" in {
