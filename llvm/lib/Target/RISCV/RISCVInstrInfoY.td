@@ -152,8 +152,10 @@ def YAMASK : RVY_r_xx<0b00000, "yamask">;
 //
 def LY : Load_ri<0b001, "ly", YGPR, opcode=OPC_RVY_A>,
          Sched<[/* TODO: WriteLDY, */ ReadMemBase]>;
+def PseudoLY : PseudoLoad<"ly", YGPRNoX0>;
 def SY : Store_rri<0b010, "sy", YGPR, opcode=OPC_RVY_A>,
          Sched<[/* TODO: WriteSTY, */ ReadStoreData, ReadMemBase]>;
+def PseudoSY : PseudoStore<"sy", YGPR>;
 } // Predicates = [HasRVYInstructions]
 
 //
