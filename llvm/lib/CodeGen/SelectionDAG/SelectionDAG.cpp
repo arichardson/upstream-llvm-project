@@ -7705,6 +7705,12 @@ SDValue SelectionDAG::FoldConstantArithmetic(unsigned Opcode, const SDLoc &DL,
   if (isUndef(Opcode, Ops))
     return getUNDEF(VT);
 
+  // For capability constants we currently only allow NULL, disable folding.
+  if (VT.isCheriCapability() || any_of(Ops, [](SDValue Op) {
+        return Op.getValueType().isCheriCapability();
+      }))
+    return SDValue();
+
   // Handle unary special cases.
   if (NumOps == 1) {
     SDValue N1 = Ops[0];
@@ -8541,15 +8547,26 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
   case ISD::ADD:
   case ISD::PTRADD:
   case ISD::SUB:
-    assert(VT.isInteger() && "This operator does not apply to FP types!");
-    assert(N1.getValueType() == N2.getValueType() &&
-           N1.getValueType() == VT && "Binary operator types must match!");
-    // The equal operand types requirement is unnecessarily strong for PTRADD.
-    // However, the SelectionDAGBuilder does not generate PTRADDs with different
-    // operand types, and we'd need to re-implement GEP's non-standard wrapping
-    // logic everywhere where PTRADDs may be folded or combined to properly
-    // support them. If/when we introduce pointer types to the SDAG, we will
-    // need to relax this constraint.
+    if (VT.isCheriCapability()) {
+      assert(Opcode == ISD::PTRADD &&
+             "This operator does not apply to capability types!");
+      assert(N2.getValueType().isInteger() &&
+             "Second PTRADD argument must be an integer type!");
+      assert(
+          N1.getValueType().isVector() == N2.getValueType().isVector() &&
+          (!VT.isVector() || VT.getVectorElementCount() ==
+                                 N2.getValueType().getVectorElementCount()) &&
+          N1.getValueType() == VT && "Binary operator types must match!");
+    } else {
+      assert(VT.isInteger() && "This operator does not apply to FP types!");
+      assert(N1.getValueType() == N2.getValueType() &&
+             N1.getValueType() == VT && "Binary operator types must match!");
+      // The equal operand types requirement is unnecessarily strong for
+      // integer PTRADD. However, SelectionDAGBuilder only generates PTRADDs
+      // with different operand types for CHERI capabilities, and we'd need to
+      // re-implement GEP's non-standard wrapping logic everywhere where
+      // PTRADDs may be folded or combined to support mismatched integer types.
+    }
 
     // (X ^|+- 0) -> X.  This commonly occurs when legalizing i64 values, so
     // it's worth handling here.
@@ -8954,7 +8971,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     case ISD::SMAX:
     case ISD::SMIN:
       // fold op(arg1, poison) -> poison, fold op(poison, arg2) -> poison.
-      return N2.getOpcode() == ISD::POISON ? N2 : N1;
+      return getPOISON(VT);
     }
   }
 
@@ -8994,7 +9011,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     case ISD::PTRADD:
     case ISD::SUB:
       // fold op(arg1, undef) -> undef.
-      return N2;
+      return getUNDEF(VT);
     case ISD::UDIV:
     case ISD::SDIV:
     case ISD::UREM:
@@ -9456,7 +9473,17 @@ static SDValue getMemsetStringVal(EVT VT, const SDLoc &dl, SelectionDAG &DAG,
 SDValue SelectionDAG::getMemBasePlusOffset(SDValue Base, TypeSize Offset,
                                            const SDLoc &DL,
                                            const SDNodeFlags Flags) {
-  SDValue Index = getTypeSize(DL, Base.getValueType(), Offset);
+  if (Offset.isZero())
+    return Base;
+
+  // For integer pointers the offset and pointer type must be identical
+  // (otherwise we assert later). For CHERI capabilities we use the index type
+  // which is the integer type with half the size.
+  EVT VT = Base.getValueType();
+  if (VT.isCheriCapability())
+    VT = VT.changeElementType(*Context,
+                              MVT::getIntegerVT(VT.getScalarSizeInBits() / 2));
+  SDValue Index = getTypeSize(DL, VT, Offset);
   return getMemBasePlusOffset(Base, Index, DL, Flags);
 }
 

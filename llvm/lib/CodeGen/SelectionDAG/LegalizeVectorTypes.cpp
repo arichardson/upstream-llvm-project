@@ -170,6 +170,7 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
     R = ScalarizeVecRes_UnaryOpWithTwoResults(N, ResNo);
     break;
   case ISD::ADD:
+  case ISD::PTRADD:
   case ISD::AND:
   case ISD::AVGCEILS:
   case ISD::AVGCEILU:
@@ -288,7 +289,12 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
 
 SDValue DAGTypeLegalizer::ScalarizeVecRes_BinOp(SDNode *N) {
   SDValue LHS = GetScalarizedVector(N->getOperand(0));
-  SDValue RHS = GetScalarizedVector(N->getOperand(1));
+  SDValue RHS = N->getOperand(1);
+  if (getTypeAction(RHS.getValueType()) == TargetLowering::TypeScalarizeVector)
+    RHS = GetScalarizedVector(RHS);
+  else
+    RHS = DAG.getExtractVectorElt(
+        SDLoc(N), RHS.getValueType().getVectorElementType(), RHS, 0);
   return DAG.getNode(N->getOpcode(), SDLoc(N),
                      LHS.getValueType(), LHS, RHS, N->getFlags());
 }
@@ -1576,6 +1582,7 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
     break;
 
   case ISD::ADD:
+  case ISD::PTRADD:
   case ISD::SUB:
   case ISD::MUL:
   case ISD::CLMUL:
@@ -1741,8 +1748,12 @@ void DAGTypeLegalizer::SplitVecRes_BinOp(SDNode *N, SDValue &Lo, SDValue &Hi) {
   SDValue LHSLo, LHSHi;
   GetSplitVector(N->getOperand(0), LHSLo, LHSHi);
   SDValue RHSLo, RHSHi;
-  GetSplitVector(N->getOperand(1), RHSLo, RHSHi);
   SDLoc dl(N);
+  SDValue RHS = N->getOperand(1);
+  if (getTypeAction(RHS.getValueType()) == TargetLowering::TypeSplitVector)
+    GetSplitVector(RHS, RHSLo, RHSHi);
+  else
+    std::tie(RHSLo, RHSHi) = DAG.SplitVector(RHS, dl);
 
   const SDNodeFlags Flags = N->getFlags();
   unsigned Opcode = N->getOpcode();
@@ -5407,6 +5418,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     break;
 
   case ISD::ADD:
+  case ISD::PTRADD:
   case ISD::AND:
   case ISD::MUL:
   case ISD::MULHS:

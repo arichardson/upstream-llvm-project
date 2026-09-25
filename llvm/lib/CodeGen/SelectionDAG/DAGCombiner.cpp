@@ -2764,10 +2764,10 @@ SDValue DAGCombiner::visitPTRADD(SDNode *N) {
   EVT IntVT = N1.getValueType();
   SDLoc DL(N);
 
-  // This is already ensured by an assert in SelectionDAG::getNode(). Several
-  // combines here depend on this assumption.
-  assert(PtrVT == IntVT &&
-         "PTRADD with different operand types is not supported");
+  // SelectionDAG::getNode() ensures that the offset is an integer and the base
+  // is either a matching integer type or a CHERI capability.
+  assert(IntVT.isInteger());
+  assert(PtrVT == IntVT || PtrVT.isCheriCapability());
 
   // fold (ptradd x, 0) -> x
   if (isNullConstant(N1))
@@ -2809,6 +2809,8 @@ SDValue DAGCombiner::visitPTRADD(SDNode *N) {
   // That is problematic for settings like AArch64's CPA, which checks that
   // intermediate results of pointer arithmetic remain in bounds. The target
   // therefore needs to opt-in to enable them.
+  // Similarly, CHERI capabilities become invalid if you go too far out of
+  // bounds, so for now we disable these transforms.
   if (!TLI.canTransformPtrArithOutOfBounds(
           DAG.getMachineFunction().getFunction(), PtrVT))
     return SDValue();
@@ -2876,7 +2878,7 @@ SDValue DAGCombiner::visitPTRADD(SDNode *N) {
   // that transformation can't block an offset folding at any use of the ptradd.
   // This should be done late, after legalization, so that it doesn't block
   // other ptradd combines that could enable more offset folding.
-  if (LegalOperations && DAG.haveNoCommonBitsSet(N0, N1)) {
+  if (LegalOperations && PtrVT == IntVT && DAG.haveNoCommonBitsSet(N0, N1)) {
     bool TransformCannotBreakAddrMode = none_of(N->users(), [&](SDNode *User) {
       return canFoldInAddressingMode(N, User, DAG, TLI);
     });

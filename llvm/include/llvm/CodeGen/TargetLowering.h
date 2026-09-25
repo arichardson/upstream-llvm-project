@@ -3703,7 +3703,8 @@ public:
   /// selection, and can fallback to regular arithmetic.
   /// This should be removed when PTRADD nodes are widely supported by backends.
   virtual bool shouldPreservePtrArith(const Function &F, EVT PtrVT) const {
-    return false;
+    // We have to use ISD::PTRADD for capability operations instead of ADD.
+    return PtrVT.isCheriCapability();
   }
 
   /// True if the target allows transformations of in-bounds pointer
