@@ -1325,11 +1325,48 @@ def HasStdExtZbkbOrP
                          "'Zbkb' (Bitmanip instructions for Cryptography) or "
                          "'Base P' (Packed-SIMD)">;
 
-// "Y" extension (CHERI support)
+// "Y" base ISA and Zyhybrid extension (CHERI support)
+//
+// Architecturally, RVY is a base ISA (RV32Y/RV64Y) that widens integer
+// registers to YLEN bits to hold capabilities and reallocates RVI's reserved
+// custom-1/custom-2/custom-3 opcode spaces to 32-bit RVY instructions.
+// When the Zyhybrid extension is implemented, the processor supports two
+// pointer modes selected by the pc.P bit:
+// - Capability Pointer Mode (pc.P=0): mode-dependent instructions use
+//   capability addressing, and Zca implies the RVY C definitions (where
+//   Zcf/Zcmp/Zcmt/Zclsd are incompatible).
+// - Integral Pointer Mode (pc.P=1): mode-dependent instructions and compressed
+//   encodings are RVI-compatible, while YLEN-wide registers and all 32-bit RVY
+//   instructions remain available.
+//
+// Per RISC-V ARC guidance, toolchains represent Capability Pointer Mode using
+// the rv32y/rv64y base ISA (FeatureStdExtY) and Integral Pointer Mode using
+// the standard rv32i/rv64i base ISA plus the Zyhybrid extension
+// (FeatureStdExtZyhybrid, e.g. rv64i_zyhybrid), rather than introducing a
+// separate base ISA name for Integral Pointer Mode:
+// - +y, -zyhybrid: Capability Pointer Mode (no mode switching).
+// - +y, +zyhybrid: Capability Pointer Mode with Zyhybrid enabled.
+// - -y, +zyhybrid: Integral Pointer Mode (RVI compatibility mode).
+//
+// Consequently, FeatureStdExtY tracks Capability Pointer Mode (IsRVYCapMode),
+// while HasStdExtYOrZyhybrid checks whether RVY registers and 32-bit RVY
+// instructions are available (+y or +zyhybrid).
+def FeatureStdExtY
+    : RISCVExperimentalExtension<0, 910, "'Base Y' (CHERI)", [],
+                                 "IsRVYCapMode">;
+def FeatureStdExtZyhybrid
+    : RISCVExperimentalExtension<0, 910,
+                                 "Hybrid Extension for RVI Compatibility">;
 
-def FeatureStdExtY : RISCVExperimentalExtension<0, 910, "'Base Y' (CHERI)">;
-def HasStdExtY : Predicate<"Subtarget->hasStdExtY()">,
-                 AssemblerPredicate<(all_of FeatureStdExtY), "'Base Y' (CHERI)">;
+def HasStdExtYOrZyhybrid
+    : Predicate<"Subtarget->hasStdExtYOrZyhybrid()">,
+      AssemblerPredicate<(any_of FeatureStdExtY, FeatureStdExtZyhybrid),
+                         "'Base Y' (CHERI) or "
+                         "'Zyhybrid' (Hybrid Extension for RVI Compatibility)">;
+def HasStdExtZyhybrid
+    : Predicate<"Subtarget->hasStdExtZyhybrid()">,
+      AssemblerPredicate<(all_of FeatureStdExtZyhybrid),
+                         "'Zyhybrid' (Hybrid Extension for RVI Compatibility)">;
 
 //===----------------------------------------------------------------------===//
 // Vendor extensions

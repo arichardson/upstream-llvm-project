@@ -180,6 +180,9 @@ public:
   bool GETTER() const { return ATTRIBUTE; }
 #include "RISCVGenSubtargetInfo.inc"
 
+  bool hasStdExtYOrZyhybrid() const {
+    return IsRVYCapMode || HasStdExtZyhybrid;
+  }
   bool hasStdExtZvl() const { return ZvlLen != 0; }
   bool hasStdExtFOrZfinx() const { return HasStdExtF || HasStdExtZfinx; }
   bool hasStdExtDOrZdinx() const { return HasStdExtD || HasStdExtZdinx; }
