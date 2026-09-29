@@ -1417,10 +1417,13 @@ static bool regClassIsYGPR(const MCRegisterClass &RC) {
 }
 
 unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
-                                                    unsigned Kind) {
+                                                    unsigned MatchKind) {
   RISCVOperand &Op = static_cast<RISCVOperand &>(AsmOp);
   if (!Op.isReg())
     return Match_InvalidOperand;
+
+  // If this is a ByHwMode kind, resolve it to the real MCK_
+  MatchClassKind Kind = remapRegClassByHwMode(MatchKind, *STI);
 
   MCRegister Reg = Op.getReg();
   bool IsRegFPR64 =
@@ -1429,11 +1432,12 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
       getRISCVMCRegisterClass(RISCV::FPR64CRegClassID).contains(Reg);
   bool IsRegVR = getRISCVMCRegisterClass(RISCV::VRRegClassID).contains(Reg);
 
+  // In RVY mode, classes such as BasePtrRC register class should select
+  // capability registers for the base pointer operands, otherwise we use GPRs.
   // YGPR and GPR use the same register names in assembly, so we have to
   // manually convert GPR operands to YGPR and check register restrictions
-  // (such as NoX0).
-  const MCRegisterClass *CheckRC =
-      getRegClassFromMatchKind(static_cast<MatchClassKind>(Kind));
+  // (such as NoX0) for ByHwMode classes.
+  const MCRegisterClass *CheckRC = getRegClassFromMatchKind(Kind);
   if (CheckRC && regClassIsYGPR(*CheckRC)) {
     if (Op.isGPR()) {
       MCRegister YReg = convertGPRToYGPR(Reg);
@@ -1442,7 +1446,7 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
         return Match_Success;
       }
     }
-    return getDiagKindFromRegisterClass(static_cast<MatchClassKind>(Kind));
+    return getDiagKindFromRegisterClass(Kind);
   }
   if (IsRegFPR64 && Kind == MCK_FPR256) {
     Op.Reg.Reg = convertFPR64ToFPR256(Reg);
@@ -1609,6 +1613,9 @@ std::string RISCVAsmParser::getCustomOperandDiag(unsigned MatchError) {
   case Match_InvalidUImm9Lsb000:
     return Range(0, (1 << 9) - 8,
                  "immediate must be a multiple of 8 bytes in the range");
+  case Match_InvalidUImm9Lsb0000:
+    return Range(0, (1 << 9) - 16,
+                 "immediate must be a multiple of 16 bytes in the range");
   case Match_InvalidSImm8PLI_B:
     return Range(-(1 << 7), (1 << 8) - 1);
   case Match_InvalidSImm10:
@@ -1620,6 +1627,9 @@ std::string RISCVAsmParser::getCustomOperandDiag(unsigned MatchError) {
   case Match_InvalidUImm10Lsb00NonZero:
     return Range(4, (1 << 10) - 4,
                  "immediate must be a multiple of 4 bytes in the range");
+  case Match_InvalidUImm10Lsb0000:
+    return Range(0, (1 << 10) - 16,
+                 "immediate must be a multiple of 16 bytes in the range");
   case Match_InvalidSImm10Lsb0000NonZero:
     return Range(
         -(1 << 9), (1 << 9) - 16,

@@ -22,18 +22,18 @@
 // RUN:   | FileCheck %t/rv32.s --check-prefixes=RV32,RV32-ZCE
 
 //--- rv64.s
-.insn 2, 0x2508
-.insn 2, 0xa508
-.insn 2, 0x2522
-.insn 2, 0xa42a
+c.ly a0, 0x100(a0)
+c.sy a0, 0x100(a0)
+c.lysp a0, 0x200(sp)
+c.sysp a0, 0x200(sp)
 ymodeswi
 /// TODO: ymodeswi/ymodeswy should switch the assembler mode without requiring `.option arch`.
 .option arch, rv64i_c_d_zyhybrid0p910
 // RV64-LABEL: <$xrv64y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
-// RV64-NEXT:   2508 <unknown>
-// RV64-NEXT:   a508 <unknown>
-// RV64-NEXT:   2522 <unknown>
-// RV64-NEXT:   a42a <unknown>
+// RV64-NEXT:   2508 c.ly a0, 0x100(a0)
+// RV64-NEXT:   a508 c.sy a0, 0x100(a0)
+// RV64-NEXT:   2522 c.lysp a0, 0x200(sp)
+// RV64-NEXT:   a42a c.sysp a0, 0x200(sp)
 // RV64-NEXT:   ymodeswi
 // RV64-EMPTY:
 
@@ -51,16 +51,16 @@ ymodeswy
 // RV64-NEXT:   ymodeswy
 // RV64-EMPTY:
 
-.insn 2, 0x2508
+c.ly a0, 0x100(a0)
 // RV64-NEXT:  <$xrv64y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
-// RV64-NEXT:   2508 <unknown>
+// RV64-NEXT:   2508 c.ly a0, 0x100(a0)
 // RV64-EMPTY:
 
 //--- rv32.s
-.insn 2, 0x6148
-.insn 2, 0xe148
-.insn 2, 0x6512
-.insn 2, 0xe22a
+c.ly a0, 0x80(a0)
+c.sy a0, 0x80(a0)
+c.lysp a0, 0x100(sp)
+c.sysp a0, 0x100(sp)
 ymodeswi
 /// TODO: ymodeswi/ymodeswy should switch the assembler mode without requiring `.option arch`.
 .ifdef ZCE
@@ -70,10 +70,10 @@ ymodeswi
 .endif
 // RV32-C-LABEL:   <$xrv32y0p910_f2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
 // RV32-ZCE-LABEL: <$xrv32y0p910_f2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0>:
-// RV32-NEXT:       6148 <unknown>
-// RV32-NEXT:       e148 <unknown>
-// RV32-NEXT:       6512 <unknown>
-// RV32-NEXT:       e22a <unknown>
+// RV32-NEXT:       6148 c.ly a0, 0x80(a0)
+// RV32-NEXT:       e148 c.sy a0, 0x80(a0)
+// RV32-NEXT:       6512 c.lysp a0, 0x100(sp)
+// RV32-NEXT:       e22a c.sysp a0, 0x100(sp)
 // RV32-NEXT:       ymodeswi
 // RV32-EMPTY:
 
@@ -96,8 +96,8 @@ ymodeswy
 // RV32-NEXT:       ymodeswy
 // RV32-EMPTY:
 
-.insn 2, 0x6148
+c.ly a0, 0x80(a0)
 // RV32-C-NEXT:    <$xrv32y0p910_f2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
 // RV32-ZCE-NEXT:  <$xrv32y0p910_f2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0>:
-// RV32-NEXT:       6148 <unknown>
+// RV32-NEXT:       6148 c.ly a0, 0x80(a0)
 // RV32-EMPTY:
