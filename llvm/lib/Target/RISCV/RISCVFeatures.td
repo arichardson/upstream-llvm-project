@@ -1359,6 +1359,14 @@ def HasStdExtZyhybrid
     : Predicate<"Subtarget->hasStdExtZyhybrid()">,
       AssemblerPredicate<(all_of FeatureStdExtZyhybrid),
                          "'Zyhybrid' (Hybrid Extension for RVI Compatibility)">;
+def IsRVYCapMode
+    : Predicate<"Subtarget->isRVYCapMode()">,
+      AssemblerPredicate<(all_of FeatureStdExtY),
+                         "RVY capability pointer mode">;
+def NotRVYCapMode
+    : Predicate<"!Subtarget->isRVYCapMode()">,
+      AssemblerPredicate<(all_of (not FeatureStdExtY)),
+                         "RVI pointer mode">;
 
 //===----------------------------------------------------------------------===//
 // Vendor extensions
@@ -2025,9 +2033,10 @@ def IsRV64 : Predicate<"Subtarget->is64Bit()">,
 def IsRV32 : Predicate<"!Subtarget->is64Bit()">,
              AssemblerPredicate<(all_of (not Feature64Bit)),
                                 "RV32I Base Instruction Set">;
-
-defvar RV32 = DefaultMode;
-def RV64 : HwMode<[IsRV64]>;
+defvar RV32I = DefaultMode;
+def RV64I : HwMode<[IsRV64, NotRVYCapMode]>;
+def RV32Y : HwMode<[IsRV32, IsRVYCapMode]>;
+def RV64Y : HwMode<[IsRV64, IsRVYCapMode]>;
 
 def FeatureRelax
     : SubtargetFeature<"relax", "EnableLinkerRelax", "true",
