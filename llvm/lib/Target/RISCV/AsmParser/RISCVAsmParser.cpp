@@ -72,6 +72,8 @@ struct RISCVOperand;
 
 struct ParserOptionsSet {
   bool IsPicEnabled;
+  // Extensions suspended by switching to capability pointer mode.
+  FeatureBitset RemovedByCapMode;
 };
 
 class RISCVAsmParser : public MCTargetAsmParser {
@@ -308,7 +310,25 @@ class RISCVAsmParser : public MCTargetAsmParser {
       setAvailableFeatures(
           ComputeAvailableFeatures(STI.ToggleFeature(FeatureString)));
     }
+    // Don't restore explicitly disabled extensions (or extensions that depend
+    // on them) when leaving capability pointer mode.
+    if (ParserOptions.RemovedByCapMode.any()) {
+      ParserOptions.RemovedByCapMode.reset(Feature);
+      if (Feature == RISCV::FeatureStdExtC) {
+        ParserOptions.RemovedByCapMode.reset(RISCV::FeatureStdExtZcd);
+        ParserOptions.RemovedByCapMode.reset(RISCV::FeatureStdExtZcf);
+      } else if (Feature == RISCV::FeatureStdExtZce &&
+                 !getSTI().hasFeature(RISCV::FeatureStdExtC)) {
+        ParserOptions.RemovedByCapMode.reset(RISCV::FeatureStdExtZcf);
+      }
+      for (const auto &F : getSTI().getAllProcessorFeatures())
+        if (F.Implies.test(Feature))
+          ParserOptions.RemovedByCapMode.reset(F.Value);
+    }
   }
+
+  /// Switch pointer mode as done by `.option arch, +/-y` and ymodeswy/ymodeswi.
+  ParseStatus setRVYCapMode(bool Enable, SMLoc Loc);
 
   void pushFeatureBits() {
     assert(FeatureBitStack.size() == ParserOptionsStack.size() &&
@@ -3321,6 +3341,7 @@ bool RISCVAsmParser::resetToArch(StringRef Arch, SMLoc Loc, std::string &Result,
   for (auto &Feature : AllFeatures)
     if (llvm::RISCVISAInfo::isSupportedExtensionFeature(Feature.key()))
       clearFeatureBits(Feature.Value, Feature.key());
+  ParserOptions.RemovedByCapMode = FeatureBitset();
 
   auto ParseResult = llvm::RISCVISAInfo::parseArchString(
       Arch, /*EnableExperimentalExtension=*/true,
@@ -3358,6 +3379,46 @@ bool RISCVAsmParser::resetToArch(StringRef Arch, SMLoc Loc, std::string &Result,
 
   Result = ISAInfo->toString();
   return false;
+}
+
+ParseStatus RISCVAsmParser::setRVYCapMode(bool Enable, SMLoc Loc) {
+  if (getSTI().hasFeature(RISCV::FeatureStdExtY) == Enable)
+    return ParseStatus::Success;
+
+  FeatureBitset OldFeatureBits = getSTI().getFeatureBits();
+  FeatureBitset FeatureBits = OldFeatureBits;
+  FeatureBitset Removed;
+  if (Enable) {
+    // RVY capability loads/stores reuse the encodings of Zcf/Zclsd (RV32) and
+    // Zcd/Zcmp/Zcmt (RV64), so those need to be implicitly disabled.
+    // Note: we only do this for standard extensions, if any of the xqc* ones
+    // are enabled when ymodesw is executed we emit an error instead.
+    FeatureBitset Incompatible =
+        isRV64() ? FeatureBitset(
+                       {RISCV::FeatureStdExtZcd, RISCV::FeatureStdExtZce,
+                        RISCV::FeatureStdExtZcmp, RISCV::FeatureStdExtZcmt})
+                 : FeatureBitset(
+                       {RISCV::FeatureStdExtZcf, RISCV::FeatureStdExtZclsd});
+    Removed = FeatureBits & Incompatible;
+    FeatureBits &= ~Incompatible;
+    FeatureBits.set(RISCV::FeatureStdExtY);
+  } else {
+    FeatureBits.reset(RISCV::FeatureStdExtY);
+    FeatureBits |= ParserOptions.RemovedByCapMode;
+  }
+  MCSubtargetInfo &STI = copySTI();
+  STI.setFeatureBits(FeatureBits);
+  RISCV::updateCZceFeatureImplications(STI);
+
+  auto ISAInfo = RISCVFeatures::parseFeatureBits(STI);
+  if (!ISAInfo) {
+    STI.setFeatureBits(OldFeatureBits);
+    return Error(Loc, toString(ISAInfo.takeError()));
+  }
+  setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
+  ParserOptions.RemovedByCapMode = Removed;
+  getTargetStreamer().setArchString((*ISAInfo)->toString());
+  return ParseStatus::Success;
 }
 
 bool RISCVAsmParser::parseDirectiveOption() {
@@ -3439,20 +3500,26 @@ bool RISCVAsmParser::parseDirectiveOption() {
       if (Ext == std::end(AllFeatures) || StringRef(Ext->key()) != Feature)
         return Error(Loc, "unknown extension feature");
 
-      if (Ext->Value == RISCV::FeatureStdExtY)
-        return Error(Loc, "passing '+y'/'-y' is not supported yet; specify a "
-                          "full arch string instead");
-
       Args.emplace_back(Type, Arch.str());
+
+      // Toggling 'y' also changes which compressed extensions are compatible.
+      if (Ext->Value == RISCV::FeatureStdExtY) {
+        if (setRVYCapMode(Type == RISCVOptionArchArgType::Plus, Loc)
+                .isFailure())
+          return true;
+        continue;
+      }
 
       if (Type == RISCVOptionArchArgType::Plus) {
         FeatureBitset OldFeatureBits = STI->getFeatureBits();
+        FeatureBitset OldRemovedByCapMode = ParserOptions.RemovedByCapMode;
 
         setFeatureBits(Ext->Value, Ext->key());
         auto ParseResult = RISCVFeatures::parseFeatureBits(*STI);
         if (!ParseResult) {
           copySTI().setFeatureBits(OldFeatureBits);
           setAvailableFeatures(ComputeAvailableFeatures(OldFeatureBits));
+          ParserOptions.RemovedByCapMode = OldRemovedByCapMode;
 
           std::string Buffer;
           raw_string_ostream OutputErrMsg(Buffer);
@@ -3487,6 +3554,8 @@ bool RISCVAsmParser::parseDirectiveOption() {
 
     if (auto ParseResult = RISCVFeatures::parseFeatureBits(*STI))
       getTargetStreamer().setArchString((*ParseResult)->toString());
+    else
+      consumeError(ParseResult.takeError());
     return false;
   }
 
@@ -3518,6 +3587,8 @@ bool RISCVAsmParser::parseDirectiveOption() {
     setFeatureBits(RISCV::FeatureStdExtC, "c");
     if (auto ParseResult = RISCVFeatures::parseFeatureBits(*STI))
       getTargetStreamer().setArchString((*ParseResult)->toString());
+    else
+      consumeError(ParseResult.takeError());
     return false;
   }
 
@@ -3530,6 +3601,8 @@ bool RISCVAsmParser::parseDirectiveOption() {
     clearFeatureBits(RISCV::FeatureStdExtZca, "zca");
     if (auto ParseResult = RISCVFeatures::parseFeatureBits(*STI))
       getTargetStreamer().setArchString((*ParseResult)->toString());
+    else
+      consumeError(ParseResult.takeError());
     return false;
   }
 
@@ -4820,6 +4893,11 @@ bool RISCVAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
   }
 
   emitToStreamer(Out, Inst);
+  // ymodeswy/ymodeswi implicitly act like `.option arch, +y`/`-y`.
+  if (Inst.getOpcode() == RISCV::YMODESWI ||
+      Inst.getOpcode() == RISCV::YMODESWY)
+    return setRVYCapMode(Inst.getOpcode() == RISCV::YMODESWY, IDLoc)
+        .isFailure();
   return false;
 }
 

@@ -10,16 +10,16 @@
 
 //--- rv64.s
 /// Start in RVI compatibility mode: C+D implies Zcd.
-/// TODO: ymodeswi/ymodeswy should switch the assembler mode without requiring `.option arch`.
+/// Switching to the current mode does not emit a new mapping symbol.
 ymodeswi
 // CHECK-LABEL: <$xrv64i2p1_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0>:
 // CHECK-NEXT:    ymodeswi
+.option arch, -y
 
 /// `.option pop` restores the mode from before `.option push`.
 .option push
 ymodeswy
 // CHECK-NEXT:    ymodeswy
-.option arch, rv64y0p910_c_d_zyhybrid0p910
 nop
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv64y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
@@ -32,7 +32,6 @@ ymodeswy
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv64i2p1_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0>:
 // CHECK-NEXT:    ymodeswy
-.option arch, rv64y0p910_c_d_zyhybrid0p910
 nop
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv64y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
@@ -47,27 +46,148 @@ ymodeswi
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv64y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0>:
 // CHECK-NEXT:    ymodeswi
-.option arch, rv64i_c_d_zyhybrid0p910
 nop
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv64i2p1_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0>:
 // CHECK-NEXT:    nop
+
+/// Mode switches can be combined with other extensions in a single directive.
+.option arch, +y, -c, -zca
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64y0p910_f2p2_d2p2_zicsr2p0_zyhybrid0p910>:
+// CHECK-NEXT:    nop
+.option arch, -y, +c
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64i2p1_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0>:
+// CHECK-NEXT:    nop
+
+/// Zce/Zcmp/Zcmt are suspended in capability pointer mode and restored on
+/// ymodeswi unless explicitly disabled in the meantime.
+.option arch, rv64i_zce_zyhybrid0p910
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64i2p1_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0>:
+// CHECK-NEXT:    ymodeswy
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64y0p910_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0>:
+// CHECK-NEXT:    nop
+.option arch, +zba
+ymodeswi
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64y0p910_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zba1p0>:
+// CHECK-NEXT:    ymodeswi
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64i2p1_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0_zba1p0>:
+// CHECK-NEXT:    ymodeswy
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64y0p910_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zba1p0>:
+// CHECK-NEXT:    nop
+.option arch, -zcmp
+ymodeswi
+// CHECK-NEXT:    ymodeswi
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64i2p1_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zcmt1p0_zba1p0>:
+// CHECK-NEXT:    nop
+
+/// Capability pointer mode implies C from Zca even with D, but it must not
+/// leak back into RVI compatibility mode (where it would imply Zcd).
+.option arch, rv64i_zce_d_zyhybrid0p910
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64i2p1_f2p2_d2p2_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0>:
+// CHECK-NEXT:    ymodeswy
+ymodeswi
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0>:
+// CHECK-NEXT:    ymodeswi
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv64i2p1_f2p2_d2p2_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0>:
+// CHECK-NEXT:    nop
 // CHECK-EMPTY:
 
 //--- rv32.s
-/// Zcd is compatible with RV32Y, so only Zcf is omitted in capability mode.
+/// Zcd is compatible with RV32Y, so only Zcf is suspended.
 .option arch, +d
 ymodeswy
 // CHECK-LABEL: <$xrv32i2p1_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0_zcf1p0>:
 // CHECK-NEXT:    ymodeswy
-.option arch, rv32y0p910_c_d_zyhybrid0p910
 ymodeswi
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv32y0p910_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0>:
 // CHECK-NEXT:    ymodeswi
-.option arch, rv32i_c_d_zyhybrid0p910
 nop
 // CHECK-EMPTY:
 // CHECK-NEXT:  <$xrv32i2p1_f2p2_d2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0_zcd1p0_zcf1p0>:
+// CHECK-NEXT:    nop
+
+/// Zclsd is suspended and restored, unless its Zilsd prerequisite has been
+/// disabled by the time we switch back to RVI compatibility mode.
+.option arch, rv32i_zclsd_zyhybrid0p910
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_c2p0_zilsd1p0_zyhybrid0p910_zca1p0_zclsd1p0>:
+// CHECK-NEXT:    ymodeswy
+ymodeswi
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32y0p910_c2p0_zilsd1p0_zyhybrid0p910_zca1p0>:
+// CHECK-NEXT:    ymodeswi
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_c2p0_zilsd1p0_zyhybrid0p910_zca1p0_zclsd1p0>:
+// CHECK-NEXT:    ymodeswy
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32y0p910_c2p0_zilsd1p0_zyhybrid0p910_zca1p0>:
+// CHECK-NEXT:    nop
+.option arch, -zilsd
+ymodeswi
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32y0p910_c2p0_zyhybrid0p910_zca1p0>:
+// CHECK-NEXT:    ymodeswi
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_c2p0_zyhybrid0p910_zca1p0>:
+// CHECK-NEXT:    nop
+
+/// Likewise, C implied by Zca+F in capability pointer mode must not leak back
+/// into RVI compatibility mode (where it would imply Zcf).
+.option arch, rv32i_zclsd_f_zyhybrid0p910
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_f2p2_zicsr2p0_zilsd1p0_zyhybrid0p910_zca1p0_zclsd1p0>:
+// CHECK-NEXT:    ymodeswy
+ymodeswi
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32y0p910_f2p2_c2p0_zicsr2p0_zilsd1p0_zyhybrid0p910_zca1p0>:
+// CHECK-NEXT:    ymodeswi
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_f2p2_zicsr2p0_zilsd1p0_zyhybrid0p910_zca1p0_zclsd1p0>:
+// CHECK-NEXT:    nop
+
+/// Disabling Zce in capability pointer mode (when C was not enabled) must
+/// prevent Zcf from being restored on ymodeswi.
+.option arch, rv32i_zce_d_zyhybrid0p910
+ymodeswy
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_f2p2_d2p2_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcf1p0_zcmp1p0_zcmt1p0>:
+// CHECK-NEXT:    ymodeswy
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32y0p910_f2p2_d2p2_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zce1p0_zcmp1p0_zcmt1p0>:
+// CHECK-NEXT:    nop
+.option arch, -zce
+ymodeswi
+// CHECK-NEXT:    ymodeswi
+nop
+// CHECK-EMPTY:
+// CHECK-NEXT:  <$xrv32i2p1_f2p2_d2p2_zicsr2p0_zyhybrid0p910_zca1p0_zcb1p0_zcmp1p0_zcmt1p0>:
 // CHECK-NEXT:    nop
 // CHECK-EMPTY:
