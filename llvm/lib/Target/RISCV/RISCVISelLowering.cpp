@@ -11064,17 +11064,16 @@ SDValue RISCVTargetLowering::lowerFRAMEADDR(SDValue Op,
   MachineFrameInfo &MFI = MF.getFrameInfo();
   MFI.setFrameAddressIsTaken(true);
   Register FrameReg = RI.getFrameRegister(MF);
-  int XLenInBytes = Subtarget.getXLen() / 8;
 
   EVT VT = Op.getValueType();
   SDLoc DL(Op);
   SDValue FrameAddr = DAG.getCopyFromReg(DAG.getEntryNode(), DL, FrameReg, VT);
   unsigned Depth = Op.getConstantOperandVal(0);
+  int Offset = -static_cast<int>(VT.getStoreSize() * 2);
   while (Depth--) {
-    int Offset = -(XLenInBytes * 2);
-    SDValue Ptr = DAG.getNode(
-        ISD::ADD, DL, VT, FrameAddr,
-        DAG.getSignedConstant(Offset, DL, getPointerTy(DAG.getDataLayout())));
+    SDValue Ptr = DAG.getMemBasePlusOffset(
+        FrameAddr, DAG.getSignedConstant(Offset, DL, Subtarget.getXLenVT()),
+        DL);
     FrameAddr =
         DAG.getLoad(VT, DL, DAG.getEntryNode(), Ptr, MachinePointerInfo());
   }
@@ -11087,25 +11086,23 @@ SDValue RISCVTargetLowering::lowerRETURNADDR(SDValue Op,
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
   MFI.setReturnAddressIsTaken(true);
-  MVT XLenVT = Subtarget.getXLenVT();
-  int XLenInBytes = Subtarget.getXLen() / 8;
 
   EVT VT = Op.getValueType();
   SDLoc DL(Op);
   unsigned Depth = Op.getConstantOperandVal(0);
   if (Depth) {
-    int Off = -XLenInBytes;
+    int Off = -static_cast<int>(VT.getStoreSize());
     SDValue FrameAddr = lowerFRAMEADDR(Op, DAG);
-    SDValue Offset = DAG.getSignedConstant(Off, DL, VT);
-    return DAG.getLoad(VT, DL, DAG.getEntryNode(),
-                       DAG.getNode(ISD::ADD, DL, VT, FrameAddr, Offset),
-                       MachinePointerInfo());
+    SDValue Ptr = DAG.getMemBasePlusOffset(
+        FrameAddr, DAG.getSignedConstant(Off, DL, Subtarget.getXLenVT()), DL);
+    return DAG.getLoad(VT, DL, DAG.getEntryNode(), Ptr, MachinePointerInfo());
   }
 
   // Return the value of the return address register, marking it an implicit
   // live-in.
-  Register Reg = MF.addLiveIn(RI.getRARegister(), getRegClassFor(XLenVT));
-  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, XLenVT);
+  Register Reg =
+      MF.addLiveIn(RI.getRARegister(), getRegClassFor(VT.getSimpleVT()));
+  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, VT);
 }
 
 SDValue RISCVTargetLowering::lowerShiftLeftParts(SDValue Op,
@@ -12954,8 +12951,9 @@ SDValue RISCVTargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
                        Index);
   }
   case Intrinsic::thread_pointer: {
-    EVT PtrVT = getPointerTy(DAG.getDataLayout());
-    return DAG.getRegister(RISCV::X4, PtrVT);
+    EVT PtrVT = Op.getValueType();
+    Register TPReg = PtrVT.isCheriCapability() ? RISCV::X4_Y : RISCV::X4;
+    return DAG.getRegister(TPReg, PtrVT);
   }
   case Intrinsic::riscv_pmul_00:
   case Intrinsic::riscv_pmul_01:
