@@ -303,6 +303,9 @@ def YMODESWI : RVY_modesw<0b00001, "ymodeswi">;
 let Predicates = [IsStdExtYCapMode] in {
 def : LdPat<load, LY, YLenVT>;
 def : StPat<store, SY, YGPR, YLenVT>;
+def : Pat<(ptradd YGPR:$rs1, XLenVT:$rs2), (YADD YGPR:$rs1, GPRNoX0:$rs2)>;
+def : Pat<(ptradd YGPR:$rs1, simm12_lo:$imm12),
+          (YADDI YGPR:$rs1, simm12_lo:$imm12)>;
 def : Pat<(YLenVT frameindex:$fi), (YADDI (YLenVT (to_tframeindex $fi)), 0)>;
 def : Pat<(ptradd (YLenVT frameindex:$fi), simm12_lo:$offset),
           (YADDI (YLenVT (to_tframeindex $fi)), simm12_lo:$offset)>;
