@@ -309,4 +309,8 @@ def : Pat<(ptradd YGPR:$rs1, simm12_lo:$imm12),
 def : Pat<(YLenVT frameindex:$fi), (YADDI (YLenVT (to_tframeindex $fi)), 0)>;
 def : Pat<(ptradd (YLenVT frameindex:$fi), simm12_lo:$offset),
           (YADDI (YLenVT (to_tframeindex $fi)), simm12_lo:$offset)>;
+def : Pat<(riscv_sw_guarded_brind (ptradd YGPRX7:$rs1, simm12_lo:$imm12)),
+          (PseudoBRINDX7 YGPRX7:$rs1, simm12_lo:$imm12)>;
+def : Pat<(brind (ptradd YGPRJALRNonX7:$rs1, simm12_lo:$imm12)),
+          (PseudoBRIND YGPRJALRNonX7:$rs1, simm12_lo:$imm12)>;
 } // Predicates = [IsStdExtYCapMode]
