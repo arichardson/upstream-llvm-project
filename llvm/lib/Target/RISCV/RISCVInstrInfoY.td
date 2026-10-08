@@ -313,4 +313,5 @@ def : Pat<(riscv_sw_guarded_brind (ptradd YGPRX7:$rs1, simm12_lo:$imm12)),
           (PseudoBRINDX7 YGPRX7:$rs1, simm12_lo:$imm12)>;
 def : Pat<(brind (ptradd YGPRJALRNonX7:$rs1, simm12_lo:$imm12)),
           (PseudoBRIND YGPRJALRNonX7:$rs1, simm12_lo:$imm12)>;
+defm Select_YGPR : SelectCC_GPR_rrirr<YGPR, YLenVT>;
 } // Predicates = [IsStdExtYCapMode]

@@ -193,6 +193,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   if (Subtarget.isRVYCapMode()) {
     CheriCapType = Subtarget.getYLenVT();
     addRegisterClass(CheriCapType, &RISCV::YGPRRegClass);
+    setOperationAction(ISD::SELECT, CheriCapType, Custom);
+    setOperationAction(ISD::SELECT_CC, CheriCapType, Expand);
   }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {
@@ -10482,6 +10484,9 @@ static SDValue lowerSelectToBinOp(SDNode *N, SelectionDAG &DAG,
   MVT VT = N->getSimpleValueType(0);
   SDLoc DL(N);
 
+  if (!VT.isScalarInteger())
+    return SDValue();
+
   if (!Subtarget.hasConditionalMoveFusion()) {
     // (select c, -1, y) -> -c | y
     if (isAllOnesConstant(TrueV)) {
@@ -10973,8 +10978,8 @@ SDValue RISCVTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   // FIXME: We don't need the condition to be SETLT or even a SETCC,
   // but we would probably want to swap the true/false values if the condition
   // is SETGE/SETLE to avoid an XORI.
-  if (isa<ConstantSDNode>(TrueV) && isa<ConstantSDNode>(FalseV) &&
-      CCVal == ISD::SETLT) {
+  if (VT.isScalarInteger() && isa<ConstantSDNode>(TrueV) &&
+      isa<ConstantSDNode>(FalseV) && CCVal == ISD::SETLT) {
     const APInt &TrueVal = TrueV->getAsAPIntVal();
     const APInt &FalseVal = FalseV->getAsAPIntVal();
     if (TrueVal - 1 == FalseVal)
@@ -25350,8 +25355,9 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
 
     // (select (x < 0), y, z)  -> x >> (XLEN - 1) & (y - z) + z
     // (select (x >= 0), y, z) -> x >> (XLEN - 1) & (z - y) + y
-    if (!Subtarget.hasShortForwardBranchIALU() && isa<ConstantSDNode>(TrueV) &&
-        isa<ConstantSDNode>(FalseV) && isNullConstant(RHS) &&
+    if (VT.isScalarInteger() && !Subtarget.hasShortForwardBranchIALU() &&
+        isa<ConstantSDNode>(TrueV) && isa<ConstantSDNode>(FalseV) &&
+        isNullConstant(RHS) &&
         (CCVal == ISD::CondCode::SETLT || CCVal == ISD::CondCode::SETGE)) {
       if (CCVal == ISD::CondCode::SETGE)
         std::swap(TrueV, FalseV);
@@ -25379,7 +25385,7 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
       return DAG.getNode(RISCVISD::SELECT_CC, DL, N->getValueType(0),
                          {LHS, RHS, CC, TrueV, FalseV});
 
-    if (!Subtarget.hasConditionalMoveFusion()) {
+    if (VT.isScalarInteger() && !Subtarget.hasConditionalMoveFusion()) {
       // (select c, -1, y) -> -c | y
       if (isAllOnesConstant(TrueV)) {
         SDValue C = DAG.getSetCC(DL, VT, LHS, RHS, CCVal);
@@ -27334,6 +27340,7 @@ static MachineBasicBlock *emitSelectPseudo(MachineInstr &MI,
 
   auto Next = next_nodbg(MI.getIterator(), BB->instr_end());
   if (MI.getOpcode() != RISCV::Select_GPR_Using_CC_GPR &&
+      MI.getOpcode() != RISCV::Select_YGPR_Using_CC_GPR &&
       MI.getOperand(1).isReg() && MI.getOperand(2).isReg() &&
       Next != BB->end() && Next->getOpcode() == MI.getOpcode() &&
       Next->getOperand(5).getReg() == MI.getOperand(0).getReg() &&
@@ -27685,6 +27692,7 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case RISCV::Select_FPR64_Using_CC_GPR:
   case RISCV::Select_FPR64INX_Using_CC_GPR:
   case RISCV::Select_FPR64IN32X_Using_CC_GPR:
+  case RISCV::Select_YGPR_Using_CC_GPR:
     return emitSelectPseudo(MI, BB, Subtarget);
   case RISCV::BuildPairF64Pseudo:
     return emitBuildPairF64Pseudo(MI, BB, Subtarget);
