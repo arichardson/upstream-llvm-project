@@ -357,6 +357,22 @@ def : Pat<(brind (ptradd YGPRJALRNonX7:$rs1, simm12_lo:$imm12)),
           (PseudoBRIND YGPRJALRNonX7:$rs1, simm12_lo:$imm12)>;
 defm Select_YGPR : SelectCC_GPR_rrirr<YGPR, YLenVT>;
 
+let append Predicates = [HasAtomicLdSt] in {
+def : LdPat<relaxed_load<atomic_load_nonext>, LY, YLenVT>;
+def : StPat<relaxed_store<atomic_store>, SY, YGPR, YLenVT>;
+} // append Predicates = [HasAtomicLdSt]
+
+let append Predicates = [HasStdExtZalrsc, NoStdExtZaamo] in {
+let Size = 12 in
+def PseudoAtomicSwapY : PseudoAMO<YGPR>;
+defm : PseudoAMOPat<"atomic_swap_cap", PseudoAtomicSwapY, YLenVT, YGPR>;
+} // append Predicates = [HasStdExtZalrsc, NoStdExtZaamo]
+
+let append Predicates = [HasStdExtZalrsc] in {
+def PseudoCmpXchgY : PseudoCmpXchg<YGPR>;
+defm : PseudoCmpXchgPat<"atomic_cmp_swap_cap", PseudoCmpXchgY, YLenVT, YGPR>;
+} // append Predicates = [HasStdExtZalrsc]
+
 let append Predicates = [HasStdExtZba] in {
 foreach i = {1, 2, 3} in {
   defvar yshxadd = !cast<Instruction>("YSH"#i#"ADD");
@@ -373,3 +389,5 @@ foreach i = {1, 2, 3, 4} in {
 } // append Predicates = [IsRV64]
 } // append Predicates = [HasStdExtZba]
 } // Predicates = [IsStdExtYCapMode]
+
+defm : AMOPat<"atomic_swap_cap", "AMOSWAP_Y", YLenVT, [IsStdExtYCapMode], YGPR>;

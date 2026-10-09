@@ -986,6 +986,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 
   if (Subtarget.hasStdExtZalrsc()) {
     setMaxAtomicSizeInBitsSupported(Subtarget.getXLen());
+    setSupportsAtomicCapabilityOperations(Subtarget.isRVYCapMode());
     if ((Subtarget.hasStdExtZabha() && Subtarget.hasStdExtZacas()) ||
         Subtarget.hasStdExtZabhlrsc())
       setMinCmpXchgSizeInBits(8);
@@ -29455,7 +29456,7 @@ RISCVTargetLowering::shouldExpandAtomicRMWInIR(const AtomicRMWInst *AI) const {
   if (Subtarget.hasForcedAtomics())
     return AtomicExpansionKind::None;
 
-  unsigned Size = AI->getType()->getPrimitiveSizeInBits();
+  unsigned Size = AI->getDataLayout().getTypeSizeInBits(AI->getType());
   if (AI->getOperation() == AtomicRMWInst::Nand) {
     if (Subtarget.hasStdExtZacas() &&
         (Size >= 32 || Subtarget.hasStdExtZabha()))
@@ -29562,7 +29563,8 @@ RISCVTargetLowering::shouldExpandAtomicCmpXchgInIR(
   if (Subtarget.hasForcedAtomics())
     return AtomicExpansionKind::None;
 
-  unsigned Size = CI->getCompareOperand()->getType()->getPrimitiveSizeInBits();
+  unsigned Size =
+      CI->getDataLayout().getTypeSizeInBits(CI->getCompareOperand()->getType());
   if (!(Subtarget.hasStdExtZabha() && Subtarget.hasStdExtZacas()) &&
       !Subtarget.hasStdExtZabhlrsc() && (Size == 8 || Size == 16))
     return AtomicExpansionKind::MaskedIntrinsic;
@@ -30331,6 +30333,13 @@ unsigned RISCVTargetLowering::getCustomCtpopCost(EVT VT,
 
 bool RISCVTargetLowering::shouldInsertFencesForAtomic(
     const Instruction *I) const {
+  if (const auto *LI = dyn_cast<LoadInst>(I)) {
+    if (I->getDataLayout().hasExternalState(LI->getType()))
+      return true;
+  } else if (const auto *SI = dyn_cast<StoreInst>(I)) {
+    if (I->getDataLayout().hasExternalState(SI->getValueOperand()->getType()))
+      return true;
+  }
   if (Subtarget.hasStdExtZalasr()) {
     if (Subtarget.hasStdExtZtso()) {
       // Zalasr + TSO means that atomic_load_acquire and atomic_store_release

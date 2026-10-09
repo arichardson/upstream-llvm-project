@@ -156,19 +156,19 @@ class seq_cst_load<PatFrags base>
 
 // An atomic store operation that does not need either acquire or release
 // semantics.
-class relaxed_store<PatFrag base>
+class relaxed_store<SDPatternOperator base>
     : PatFrag<(ops node:$val, node:$ptr), (base node:$val, node:$ptr)> {
   let IsAtomicOrderingReleaseOrStronger = 0;
 }
 
 // A store operation that actually needs release semantics.
-class releasing_store<PatFrag base>
+class releasing_store<SDPatternOperator base>
     : PatFrag<(ops node:$val, node:$ptr), (base node:$val, node:$ptr)> {
   let IsAtomicOrderingRelease = 1;
 }
 
 // A store operation that actually needs sequential consistency.
-class seq_cst_store<PatFrag base>
+class seq_cst_store<SDPatternOperator base>
     : PatFrag<(ops node:$val, node:$ptr), (base node:$val, node:$ptr)> {
   let IsAtomicOrderingSequentiallyConsistent = 1;
 }
@@ -205,35 +205,37 @@ let Predicates = [HasAtomicLdSt, IsRV64] in {
 
 /// AMOs
 
-class PatAMO<SDPatternOperator OpNode, RVInst Inst, ValueType vt = XLenVT>
-    : Pat<(vt (OpNode (PtrVT BasePtr:$rs1), (vt GPR:$rs2))),
-          (Inst GPR:$rs2, BasePtr:$rs1)>;
+class PatAMO<SDPatternOperator OpNode, RVInst Inst, ValueType vt = XLenVT,
+             RegisterClass ValReg = GPR>
+    : Pat<(vt (OpNode (PtrVT BasePtr:$rs1), (vt ValReg:$rs2))),
+          (Inst ValReg:$rs2, BasePtr:$rs1)>;
 
 multiclass AMOPat<string AtomicOp, string BaseInst, ValueType vt = XLenVT,
-                  list<Predicate> ExtraPreds = []> {
+                  list<Predicate> ExtraPreds = [],
+                  RegisterClass ValReg = GPR> {
 let Predicates = !listconcat([HasStdExtA, NoStdExtZtso], ExtraPreds) in {
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_monotonic"),
-               !cast<RVInst>(BaseInst), vt>;
+               !cast<RVInst>(BaseInst), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_acquire"),
-               !cast<RVInst>(BaseInst#"_AQ"), vt>;
+               !cast<RVInst>(BaseInst#"_AQ"), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_release"),
-               !cast<RVInst>(BaseInst#"_RL"), vt>;
+               !cast<RVInst>(BaseInst#"_RL"), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_acq_rel"),
-               !cast<RVInst>(BaseInst#"_AQRL"), vt>;
+               !cast<RVInst>(BaseInst#"_AQRL"), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_seq_cst"),
-               !cast<RVInst>(BaseInst#"_AQRL"), vt>;
+               !cast<RVInst>(BaseInst#"_AQRL"), vt, ValReg>;
 }
 let Predicates = !listconcat([HasStdExtA, HasStdExtZtso], ExtraPreds) in {
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_monotonic"),
-               !cast<RVInst>(BaseInst), vt>;
+               !cast<RVInst>(BaseInst), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_acquire"),
-               !cast<RVInst>(BaseInst), vt>;
+               !cast<RVInst>(BaseInst), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_release"),
-               !cast<RVInst>(BaseInst), vt>;
+               !cast<RVInst>(BaseInst), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_acq_rel"),
-               !cast<RVInst>(BaseInst), vt>;
+               !cast<RVInst>(BaseInst), vt, ValReg>;
   def : PatAMO<!cast<PatFrag>(AtomicOp#"_seq_cst"),
-               !cast<RVInst>(BaseInst), vt>;
+               !cast<RVInst>(BaseInst), vt, ValReg>;
 }
 }
 
@@ -260,8 +262,9 @@ defm : AMOPat<"atomic_load_umin_i64", "AMOMINU_D", i64, [IsRV64]>;
 
 /// Pseudo AMOs
 
-class PseudoAMO : Pseudo<(outs GPR:$res, GPR:$scratch),
-                         (ins BasePtr:$addr, GPR:$incr, ordering:$ordering), []> {
+class PseudoAMO<RegisterClass ValReg = GPR>
+    : Pseudo<(outs ValReg:$res, GPR:$scratch),
+             (ins BasePtr:$addr, ValReg:$incr, ordering:$ordering), []> {
   let Constraints = "@earlyclobber $res,@earlyclobber $scratch";
   let mayLoad = 1;
   let mayStore = 1;
@@ -300,17 +303,18 @@ class PseudoMaskedAMOUMinUMax
 
 // Ordering constants must be kept in sync with the AtomicOrdering enum in
 // AtomicOrdering.h.
-multiclass PseudoAMOPat<string AtomicOp, Pseudo AMOInst, ValueType vt = XLenVT> {
-  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_monotonic") BasePtr:$addr, GPR:$incr)),
-            (AMOInst BasePtr:$addr, GPR:$incr, 2)>;
-  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_acquire") BasePtr:$addr, GPR:$incr)),
-            (AMOInst BasePtr:$addr, GPR:$incr, 4)>;
-  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_release") BasePtr:$addr, GPR:$incr)),
-            (AMOInst BasePtr:$addr, GPR:$incr, 5)>;
-  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_acq_rel") BasePtr:$addr, GPR:$incr)),
-            (AMOInst BasePtr:$addr, GPR:$incr, 6)>;
-  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_seq_cst") BasePtr:$addr, GPR:$incr)),
-            (AMOInst BasePtr:$addr, GPR:$incr, 7)>;
+multiclass PseudoAMOPat<string AtomicOp, Pseudo AMOInst, ValueType vt = XLenVT,
+                        RegisterClass ValReg = GPR> {
+  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_monotonic") BasePtr:$addr, (vt ValReg:$incr))),
+            (AMOInst BasePtr:$addr, ValReg:$incr, 2)>;
+  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_acquire") BasePtr:$addr, (vt ValReg:$incr))),
+            (AMOInst BasePtr:$addr, ValReg:$incr, 4)>;
+  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_release") BasePtr:$addr, (vt ValReg:$incr))),
+            (AMOInst BasePtr:$addr, ValReg:$incr, 5)>;
+  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_acq_rel") BasePtr:$addr, (vt ValReg:$incr))),
+            (AMOInst BasePtr:$addr, ValReg:$incr, 6)>;
+  def : Pat<(vt (!cast<PatFrag>(AtomicOp#"_seq_cst") BasePtr:$addr, (vt ValReg:$incr))),
+            (AMOInst BasePtr:$addr, ValReg:$incr, 7)>;
 }
 
 class PseudoMaskedAMOPat<Intrinsic intrin, Pseudo AMOInst>
@@ -434,9 +438,10 @@ defm : PseudoAMOPat<"atomic_load_nand_i64", PseudoAtomicLoadNand64, i64>;
 
 /// Compare and exchange
 
-class PseudoCmpXchg
-    : Pseudo<(outs GPR:$res, GPR:$scratch),
-             (ins BasePtr:$addr, GPR:$cmpval, GPR:$newval, ordering:$ordering), []> {
+class PseudoCmpXchg<RegisterClass ValReg = GPR>
+    : Pseudo<(outs ValReg:$res, GPR:$scratch),
+             (ins BasePtr:$addr, ValReg:$cmpval, ValReg:$newval,
+              ordering:$ordering), []> {
   let Constraints = "@earlyclobber $res,@earlyclobber $scratch";
   let mayLoad = 1;
   let mayStore = 1;
@@ -447,17 +452,18 @@ class PseudoCmpXchg
 // Ordering constants must be kept in sync with the AtomicOrdering enum in
 // AtomicOrdering.h.
 multiclass PseudoCmpXchgPat<string Op, Pseudo CmpXchgInst,
-                            ValueType vt = XLenVT> {
-  def : Pat<(vt (!cast<PatFrag>(Op#"_monotonic") BasePtr:$addr, GPR:$cmp, GPR:$new)),
-            (CmpXchgInst BasePtr:$addr, GPR:$cmp, GPR:$new, 2)>;
-  def : Pat<(vt (!cast<PatFrag>(Op#"_acquire") BasePtr:$addr, GPR:$cmp, GPR:$new)),
-            (CmpXchgInst BasePtr:$addr, GPR:$cmp, GPR:$new, 4)>;
-  def : Pat<(vt (!cast<PatFrag>(Op#"_release") BasePtr:$addr, GPR:$cmp, GPR:$new)),
-            (CmpXchgInst BasePtr:$addr, GPR:$cmp, GPR:$new, 5)>;
-  def : Pat<(vt (!cast<PatFrag>(Op#"_acq_rel") BasePtr:$addr, GPR:$cmp, GPR:$new)),
-            (CmpXchgInst BasePtr:$addr, GPR:$cmp, GPR:$new, 6)>;
-  def : Pat<(vt (!cast<PatFrag>(Op#"_seq_cst") BasePtr:$addr, GPR:$cmp, GPR:$new)),
-            (CmpXchgInst BasePtr:$addr, GPR:$cmp, GPR:$new, 7)>;
+                            ValueType vt = XLenVT,
+                            RegisterClass ValReg = GPR> {
+  def : Pat<(vt (!cast<PatFrag>(Op#"_monotonic") BasePtr:$addr, (vt ValReg:$cmp), (vt ValReg:$new))),
+            (CmpXchgInst BasePtr:$addr, ValReg:$cmp, ValReg:$new, 2)>;
+  def : Pat<(vt (!cast<PatFrag>(Op#"_acquire") BasePtr:$addr, (vt ValReg:$cmp), (vt ValReg:$new))),
+            (CmpXchgInst BasePtr:$addr, ValReg:$cmp, ValReg:$new, 4)>;
+  def : Pat<(vt (!cast<PatFrag>(Op#"_release") BasePtr:$addr, (vt ValReg:$cmp), (vt ValReg:$new))),
+            (CmpXchgInst BasePtr:$addr, ValReg:$cmp, ValReg:$new, 5)>;
+  def : Pat<(vt (!cast<PatFrag>(Op#"_acq_rel") BasePtr:$addr, (vt ValReg:$cmp), (vt ValReg:$new))),
+            (CmpXchgInst BasePtr:$addr, ValReg:$cmp, ValReg:$new, 6)>;
+  def : Pat<(vt (!cast<PatFrag>(Op#"_seq_cst") BasePtr:$addr, (vt ValReg:$cmp), (vt ValReg:$new))),
+            (CmpXchgInst BasePtr:$addr, ValReg:$cmp, ValReg:$new, 7)>;
 }
 
 let Predicates = [HasStdExtZalrsc, NoStdExtZacas] in {

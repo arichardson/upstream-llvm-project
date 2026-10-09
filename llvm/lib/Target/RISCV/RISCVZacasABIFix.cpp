@@ -63,7 +63,10 @@ public:
 // SequentiallyConsistent failure ordering.
 bool RISCVZacasABIFixImpl::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
   assert(ST->hasStdExtZacas() && "only necessary to run in presence of zacas");
-  unsigned Size = I.getCompareOperand()->getType()->getPrimitiveSizeInBits();
+  Type *CmpTy = I.getCompareOperand()->getType();
+  if (I.getDataLayout().hasExternalState(CmpTy))
+    return false;
+  unsigned Size = I.getDataLayout().getTypeSizeInBits(CmpTy);
   if (Size < 32 && !ST->hasStdExtZabha())
     return false;
   if (I.getFailureOrdering() != AtomicOrdering::SequentiallyConsistent)

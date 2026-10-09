@@ -3,18 +3,18 @@
 ;; capability pointers across Zalrsc, Zaamo, Zabha, Zabhlrsc, Zacas, and Zalasr
 ;; (adapted from CHERI-LLVM atomic-load-store.ll, atomic-rmw.ll, and
 ;; atomic-cmpxchg.ll).
-; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+zalrsc -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZALRSC,RV32-ZALRSC
-; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZAAMO,RV32-ZAAMO
-; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a,+zabha -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZABHA,RV32-ZABHA
-; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+experimental-zabhlrsc -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZABHLRSC,RV32-ZABHLRSC
-; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a,+zacas,+zalasr -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,ZACAS-ZALASR,ZACAS,RV32-ZACAS
-; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a,+zabha,+zacas,+zalasr -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,ZACAS-ZALASR,ZABHA-ZACAS,RV32-ZABHA-ZACAS
-; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+zalrsc -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZALRSC,RV64-ZALRSC
-; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZAAMO,RV64-ZAAMO
-; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a,+zabha -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZABHA,RV64-ZABHA
-; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+experimental-zabhlrsc -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,NO-ZALASR,ZABHLRSC,RV64-ZABHLRSC
-; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a,+zacas,+zalasr -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,ZACAS-ZALASR,ZACAS,RV64-ZACAS
-; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a,+zabha,+zacas,+zalasr -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,ZACAS-ZALASR,ZABHA-ZACAS,RV64-ZABHA-ZACAS
+; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+zalrsc -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV32,NO-ZALASR,ZALRSC,RV32-ZALRSC
+; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV32,NO-ZALASR,ZAAMO,RV32-ZAAMO
+; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a,+zabha -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV32,NO-ZALASR,ZABHA,RV32-ZABHA
+; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+experimental-zabhlrsc -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV32,NO-ZALASR,ZABHLRSC,RV32-ZABHLRSC
+; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a,+zacas,+zalasr -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV32,ZACAS-ZALASR,ZACAS,RV32-ZACAS
+; RUN: llc < %s -mtriple=riscv32 -mattr=+experimental-y,+a,+zabha,+zacas,+zalasr -target-abi=il32pc64 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV32,ZACAS-ZALASR,ZABHA-ZACAS,RV32-ZABHA-ZACAS
+; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+zalrsc -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV64,NO-ZALASR,ZALRSC,RV64-ZALRSC
+; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV64,NO-ZALASR,ZAAMO,RV64-ZAAMO
+; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a,+zabha -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV64,NO-ZALASR,ZABHA,RV64-ZABHA
+; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+experimental-zabhlrsc -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV64,NO-ZALASR,ZABHLRSC,RV64-ZABHLRSC
+; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a,+zacas,+zalasr -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV64,ZACAS-ZALASR,ZACAS,RV64-ZACAS
+; RUN: llc < %s -mtriple=riscv64 -mattr=+experimental-y,+a,+zabha,+zacas,+zalasr -target-abi=l64pc128 -verify-machineinstrs | FileCheck %s --check-prefixes=CHECK,RV64,ZACAS-ZALASR,ZABHA-ZACAS,RV64-ZABHA-ZACAS
 
 ;; Atomic loads and stores (from atomic-load-store.ll)
 
@@ -826,6 +826,217 @@ define signext i32 @atomic_store_followed_by_load_large_offset(ptr addrspace(200
   store atomic i32 2, ptr addrspace(200) %gep0 seq_cst, align 4
   %a = load i32, ptr addrspace(200) %gep0, align 4
   ret i32 %a
+}
+
+;; Capability-valued atomic operations (load, store, atomicrmw xchg, cmpxchg)
+
+define ptr addrspace(200) @atomic_load_cap_acquire(ptr addrspace(200) %a) nounwind {
+; CHECK-LABEL: atomic_load_cap_acquire:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    ly a0, 0(a0)
+; CHECK-NEXT:    fence r, rw
+; CHECK-NEXT:    ret
+  %1 = load atomic ptr addrspace(200), ptr addrspace(200) %a acquire, align 16
+  ret ptr addrspace(200) %1
+}
+
+define ptr addrspace(200) @atomic_load_cap_seq_cst(ptr addrspace(200) %a) nounwind {
+; CHECK-LABEL: atomic_load_cap_seq_cst:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    fence rw, rw
+; CHECK-NEXT:    ly a0, 0(a0)
+; CHECK-NEXT:    fence r, rw
+; CHECK-NEXT:    ret
+  %1 = load atomic ptr addrspace(200), ptr addrspace(200) %a seq_cst, align 16
+  ret ptr addrspace(200) %1
+}
+
+define void @atomic_store_cap_release(ptr addrspace(200) %a, ptr addrspace(200) %b) nounwind {
+; CHECK-LABEL: atomic_store_cap_release:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    fence rw, w
+; CHECK-NEXT:    sy a1, 0(a0)
+; CHECK-NEXT:    ret
+  store atomic ptr addrspace(200) %b, ptr addrspace(200) %a release, align 16
+  ret void
+}
+
+define void @atomic_store_cap_seq_cst(ptr addrspace(200) %a, ptr addrspace(200) %b) nounwind {
+; CHECK-LABEL: atomic_store_cap_seq_cst:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    fence rw, w
+; CHECK-NEXT:    sy a1, 0(a0)
+; CHECK-NEXT:    fence rw, rw
+; CHECK-NEXT:    ret
+  store atomic ptr addrspace(200) %b, ptr addrspace(200) %a seq_cst, align 16
+  ret void
+}
+
+define ptr addrspace(200) @atomicrmw_xchg_cap_monotonic(ptr addrspace(200) %a, ptr addrspace(200) %b) nounwind {
+; ZALRSC-LABEL: atomicrmw_xchg_cap_monotonic:
+; ZALRSC:       # %bb.0:
+; ZALRSC-NEXT:  .LBB25_1: # =>This Inner Loop Header: Depth=1
+; ZALRSC-NEXT:    lr.y a2, (a0)
+; ZALRSC-NEXT:    sc.y a3, a1, (a0)
+; ZALRSC-NEXT:    bnez a3, .LBB25_1
+; ZALRSC-NEXT:  # %bb.2:
+; ZALRSC-NEXT:    ymv a0, a2
+; ZALRSC-NEXT:    ret
+;
+; ZAAMO-LABEL: atomicrmw_xchg_cap_monotonic:
+; ZAAMO:       # %bb.0:
+; ZAAMO-NEXT:    amoswap.y a0, a1, (a0)
+; ZAAMO-NEXT:    ret
+;
+; ZABHA-LABEL: atomicrmw_xchg_cap_monotonic:
+; ZABHA:       # %bb.0:
+; ZABHA-NEXT:    amoswap.y a0, a1, (a0)
+; ZABHA-NEXT:    ret
+;
+; ZABHLRSC-LABEL: atomicrmw_xchg_cap_monotonic:
+; ZABHLRSC:       # %bb.0:
+; ZABHLRSC-NEXT:  .LBB25_1: # =>This Inner Loop Header: Depth=1
+; ZABHLRSC-NEXT:    lr.y a2, (a0)
+; ZABHLRSC-NEXT:    sc.y a3, a1, (a0)
+; ZABHLRSC-NEXT:    bnez a3, .LBB25_1
+; ZABHLRSC-NEXT:  # %bb.2:
+; ZABHLRSC-NEXT:    ymv a0, a2
+; ZABHLRSC-NEXT:    ret
+;
+; ZACAS-ZALASR-LABEL: atomicrmw_xchg_cap_monotonic:
+; ZACAS-ZALASR:       # %bb.0:
+; ZACAS-ZALASR-NEXT:    amoswap.y a0, a1, (a0)
+; ZACAS-ZALASR-NEXT:    ret
+  %1 = atomicrmw xchg ptr addrspace(200) %a, ptr addrspace(200) %b monotonic, align 16
+  ret ptr addrspace(200) %1
+}
+
+define ptr addrspace(200) @atomicrmw_xchg_cap_seq_cst(ptr addrspace(200) %a, ptr addrspace(200) %b) nounwind {
+; ZALRSC-LABEL: atomicrmw_xchg_cap_seq_cst:
+; ZALRSC:       # %bb.0:
+; ZALRSC-NEXT:  .LBB26_1: # =>This Inner Loop Header: Depth=1
+; ZALRSC-NEXT:    lr.y.aqrl a2, (a0)
+; ZALRSC-NEXT:    sc.y.rl a3, a1, (a0)
+; ZALRSC-NEXT:    bnez a3, .LBB26_1
+; ZALRSC-NEXT:  # %bb.2:
+; ZALRSC-NEXT:    ymv a0, a2
+; ZALRSC-NEXT:    ret
+;
+; ZAAMO-LABEL: atomicrmw_xchg_cap_seq_cst:
+; ZAAMO:       # %bb.0:
+; ZAAMO-NEXT:    amoswap.y.aqrl a0, a1, (a0)
+; ZAAMO-NEXT:    ret
+;
+; ZABHA-LABEL: atomicrmw_xchg_cap_seq_cst:
+; ZABHA:       # %bb.0:
+; ZABHA-NEXT:    amoswap.y.aqrl a0, a1, (a0)
+; ZABHA-NEXT:    ret
+;
+; ZABHLRSC-LABEL: atomicrmw_xchg_cap_seq_cst:
+; ZABHLRSC:       # %bb.0:
+; ZABHLRSC-NEXT:  .LBB26_1: # =>This Inner Loop Header: Depth=1
+; ZABHLRSC-NEXT:    lr.y.aqrl a2, (a0)
+; ZABHLRSC-NEXT:    sc.y.rl a3, a1, (a0)
+; ZABHLRSC-NEXT:    bnez a3, .LBB26_1
+; ZABHLRSC-NEXT:  # %bb.2:
+; ZABHLRSC-NEXT:    ymv a0, a2
+; ZABHLRSC-NEXT:    ret
+;
+; ZACAS-ZALASR-LABEL: atomicrmw_xchg_cap_seq_cst:
+; ZACAS-ZALASR:       # %bb.0:
+; ZACAS-ZALASR-NEXT:    amoswap.y.aqrl a0, a1, (a0)
+; ZACAS-ZALASR-NEXT:    ret
+  %1 = atomicrmw xchg ptr addrspace(200) %a, ptr addrspace(200) %b seq_cst, align 16
+  ret ptr addrspace(200) %1
+}
+
+define ptr addrspace(200) @cmpxchg_cap_seq_cst_monotonic(ptr addrspace(200) %ptr, ptr addrspace(200) %cmp, ptr addrspace(200) %val) nounwind {
+; CHECK-LABEL: cmpxchg_cap_seq_cst_monotonic:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:  .LBB27_1: # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    lr.y.aqrl a3, (a0)
+; CHECK-NEXT:    bne a3, a1, .LBB27_3
+; CHECK-NEXT:  # %bb.2: # in Loop: Header=BB27_1 Depth=1
+; CHECK-NEXT:    sc.y.rl a4, a2, (a0)
+; CHECK-NEXT:    bnez a4, .LBB27_1
+; CHECK-NEXT:  .LBB27_3:
+; CHECK-NEXT:    ymv a0, a3
+; CHECK-NEXT:    ret
+  %res = cmpxchg ptr addrspace(200) %ptr, ptr addrspace(200) %cmp, ptr addrspace(200) %val seq_cst monotonic, align 16
+  %old = extractvalue { ptr addrspace(200), i1 } %res, 0
+  ret ptr addrspace(200) %old
+}
+
+define i1 @cmpxchg_cap_extract_success(ptr addrspace(200) %ptr, ptr addrspace(200) %cmp, ptr addrspace(200) %val) nounwind {
+; CHECK-LABEL: cmpxchg_cap_extract_success:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:  .LBB28_1: # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    lr.y.aqrl a3, (a0)
+; CHECK-NEXT:    bne a3, a1, .LBB28_3
+; CHECK-NEXT:  # %bb.2: # in Loop: Header=BB28_1 Depth=1
+; CHECK-NEXT:    sc.y.rl a4, a2, (a0)
+; CHECK-NEXT:    bnez a4, .LBB28_1
+; CHECK-NEXT:  .LBB28_3:
+; CHECK-NEXT:    xor a0, a3, a1
+; CHECK-NEXT:    seqz a0, a0
+; CHECK-NEXT:    ret
+  %res = cmpxchg ptr addrspace(200) %ptr, ptr addrspace(200) %cmp, ptr addrspace(200) %val seq_cst monotonic, align 16
+  %success = extractvalue { ptr addrspace(200), i1 } %res, 1
+  ret i1 %success
+}
+
+define void @cmpxchg_cap_branch_on_success(ptr addrspace(200) %ptr, ptr addrspace(200) %cmp, ptr addrspace(200) %val, ptr addrspace(200) %out) nounwind {
+; CHECK-LABEL: cmpxchg_cap_branch_on_success:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:  .LBB29_3: # %entry
+; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    lr.y.aq a4, (a0)
+; CHECK-NEXT:    bne a4, a1, .LBB29_2
+; CHECK-NEXT:  # %bb.4: # %entry
+; CHECK-NEXT:    # in Loop: Header=BB29_3 Depth=1
+; CHECK-NEXT:    sc.y.rl a5, a2, (a0)
+; CHECK-NEXT:    bnez a5, .LBB29_3
+; CHECK-NEXT:  # %bb.5: # %entry
+; CHECK-NEXT:  # %bb.1: # %if.then
+; CHECK-NEXT:    sy a4, 0(a3)
+; CHECK-NEXT:  .LBB29_2: # %if.end
+; CHECK-NEXT:    ret
+entry:
+  %res = cmpxchg ptr addrspace(200) %ptr, ptr addrspace(200) %cmp, ptr addrspace(200) %val acq_rel acquire, align 16
+  %success = extractvalue { ptr addrspace(200), i1 } %res, 1
+  br i1 %success, label %if.then, label %if.end
+
+if.then:
+  %old = extractvalue { ptr addrspace(200), i1 } %res, 0
+  store ptr addrspace(200) %old, ptr addrspace(200) %out, align 16
+  br label %if.end
+
+if.end:
+  ret void
+}
+
+define ptr addrspace(200) @atomic_load_cap_align8(ptr addrspace(200) %a) nounwind {
+; RV32-LABEL: atomic_load_cap_align8:
+; RV32:       # %bb.0:
+; RV32-NEXT:    ly a0, 0(a0)
+; RV32-NEXT:    fence r, rw
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: atomic_load_cap_align8:
+; RV64:       # %bb.0:
+; RV64-NEXT:    yaddi sp, sp, -32
+; RV64-NEXT:    sy ra, 16(sp) # 16-byte Folded Spill
+; RV64-NEXT:    ymv a1, a0
+; RV64-NEXT:    li a0, 16
+; RV64-NEXT:    yaddi a2, sp, 0
+; RV64-NEXT:    li a3, 2
+; RV64-NEXT:    call __atomic_load
+; RV64-NEXT:    ly a0, 0(sp)
+; RV64-NEXT:    ly ra, 16(sp) # 16-byte Folded Reload
+; RV64-NEXT:    yaddi sp, sp, 32
+; RV64-NEXT:    ret
+  %1 = load atomic ptr addrspace(200), ptr addrspace(200) %a acquire, align 8
+  ret ptr addrspace(200) %1
 }
 ;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
 ; RV32-ZAAMO: {{.*}}
