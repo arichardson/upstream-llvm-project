@@ -3831,6 +3831,7 @@ bool RISCVDAGToDAGISel::SelectAddrRegImmLsb00000(SDValue Addr, SDValue &Base,
 
   SDLoc DL(Addr);
   MVT VT = Addr.getSimpleValueType();
+  MVT XLenVT = Subtarget->getXLenVT();
 
   if (CurDAG->isBaseWithConstantOffset(Addr)) {
     int64_t CVal = cast<ConstantSDNode>(Addr.getOperand(1))->getSExtValue();
@@ -3840,19 +3841,19 @@ bool RISCVDAGToDAGISel::SelectAddrRegImmLsb00000(SDValue Addr, SDValue &Base,
       // Early-out if not a valid offset.
       if ((CVal & 0b11111) != 0) {
         Base = Addr;
-        Offset = CurDAG->getTargetConstant(0, DL, VT);
+        Offset = CurDAG->getTargetConstant(0, DL, XLenVT);
         return true;
       }
 
       if (auto *FIN = dyn_cast<FrameIndexSDNode>(Base))
         Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), VT);
-      Offset = CurDAG->getSignedTargetConstant(CVal, DL, VT);
+      Offset = CurDAG->getSignedTargetConstant(CVal, DL, XLenVT);
       return true;
     }
   }
 
-  // Handle ADD with large immediates.
-  if (Addr.getOpcode() == ISD::ADD && isa<ConstantSDNode>(Addr.getOperand(1))) {
+  // Handle ADD/PTRADD with large immediates.
+  if (Addr->isAnyAdd() && isa<ConstantSDNode>(Addr.getOperand(1))) {
     int64_t CVal = cast<ConstantSDNode>(Addr.getOperand(1))->getSExtValue();
     assert(!isInt<12>(CVal) && "simm12 not already handled?");
 
@@ -3862,31 +3863,33 @@ bool RISCVDAGToDAGISel::SelectAddrRegImmLsb00000(SDValue Addr, SDValue &Base,
     if ((-2049 >= CVal && CVal >= -4096) || (4063 >= CVal && CVal >= 2017)) {
       int64_t Adj = CVal < 0 ? -2048 : 2016;
       int64_t AdjustedOffset = CVal - Adj;
-      Base =
-          SDValue(CurDAG->getMachineNode(
-                      RISCV::ADDI, DL, VT, Addr.getOperand(0),
-                      CurDAG->getSignedTargetConstant(AdjustedOffset, DL, VT)),
-                  0);
-      Offset = CurDAG->getSignedTargetConstant(Adj, DL, VT);
+      unsigned AddiOpc = VT.isCheriCapability() ? RISCV::YADDI : RISCV::ADDI;
+      Base = SDValue(
+          CurDAG->getMachineNode(
+              AddiOpc, DL, VT, Addr.getOperand(0),
+              CurDAG->getSignedTargetConstant(AdjustedOffset, DL, XLenVT)),
+          0);
+      Offset = CurDAG->getSignedTargetConstant(Adj, DL, XLenVT);
       return true;
     }
 
-    if (selectConstantAddr(CurDAG, DL, VT, Subtarget, Addr.getOperand(1), Base,
-                           Offset, /*IsPrefetch=*/true)) {
-      // Insert an ADD instruction with the materialized Hi52 bits.
+    if (selectConstantAddr(CurDAG, DL, XLenVT, Subtarget, Addr.getOperand(1),
+                           Base, Offset, /*IsPrefetch=*/true)) {
+      // Insert an ADD/YADD instruction with the materialized Hi52 bits.
+      unsigned AddOpc = VT.isCheriCapability() ? RISCV::YADD : RISCV::ADD;
       Base = SDValue(
-          CurDAG->getMachineNode(RISCV::ADD, DL, VT, Addr.getOperand(0), Base),
-          0);
+          CurDAG->getMachineNode(AddOpc, DL, VT, Addr.getOperand(0), Base), 0);
       return true;
     }
   }
 
-  if (selectConstantAddr(CurDAG, DL, VT, Subtarget, Addr, Base, Offset,
+  if (!VT.isCheriCapability() &&
+      selectConstantAddr(CurDAG, DL, VT, Subtarget, Addr, Base, Offset,
                          /*IsPrefetch=*/true))
     return true;
 
   Base = Addr;
-  Offset = CurDAG->getTargetConstant(0, DL, VT);
+  Offset = CurDAG->getTargetConstant(0, DL, XLenVT);
   return true;
 }
 

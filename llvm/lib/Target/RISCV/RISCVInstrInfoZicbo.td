@@ -69,19 +69,19 @@ def PREFETCH_W : Prefetch_ri<0b00011, "prefetch.w">, Sched<[]>;
 // Patterns
 //===----------------------------------------------------------------------===//
 
-def AddrRegImmLsb00000 : ComplexPattern<iPTR, 2, "SelectAddrRegImmLsb00000">;
+def AddrRegImmLsb00000 : ComplexPattern<PtrVT, 2, "SelectAddrRegImmLsb00000">;
 def gi_addr_regimm_lsb00000
     : GIComplexOperandMatcher<s64, "selectAddrRegImmLsb00000">,
       GIComplexPatternEquiv<AddrRegImmLsb00000>;
 
 let Predicates = [NoVendorXMIPSCBOP] in {
-  def : Pat<(prefetch (AddrRegImmLsb00000 (XLenVT GPR:$rs1), simm12_lsb00000:$imm12),
+  def : Pat<(prefetch (AddrRegImmLsb00000 (PtrVT BasePtr:$rs1), simm12_lsb00000:$imm12),
                       timm, timm, (i32 0)),
-            (PREFETCH_I GPR:$rs1, simm12_lsb00000:$imm12)>;
-  def : Pat<(prefetch (AddrRegImmLsb00000 (XLenVT GPR:$rs1), simm12_lsb00000:$imm12),
+            (PREFETCH_I BasePtr:$rs1, simm12_lsb00000:$imm12)>;
+  def : Pat<(prefetch (AddrRegImmLsb00000 (PtrVT BasePtr:$rs1), simm12_lsb00000:$imm12),
                       (i32 0), timm, (i32 1)),
-            (PREFETCH_R GPR:$rs1, simm12_lsb00000:$imm12)>;
-  def : Pat<(prefetch (AddrRegImmLsb00000 (XLenVT GPR:$rs1), simm12_lsb00000:$imm12),
+            (PREFETCH_R BasePtr:$rs1, simm12_lsb00000:$imm12)>;
+  def : Pat<(prefetch (AddrRegImmLsb00000 (PtrVT BasePtr:$rs1), simm12_lsb00000:$imm12),
                       (i32 1), timm, (i32 1)),
-            (PREFETCH_W GPR:$rs1, simm12_lsb00000:$imm12)>;
+            (PREFETCH_W BasePtr:$rs1, simm12_lsb00000:$imm12)>;
 } // Predicates = [NoVendorXMIPSCBOP]
