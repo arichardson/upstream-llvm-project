@@ -174,6 +174,23 @@ defm AMOSWAP_Y : AMO_rr_aq_rl<0b00001, 0b011, "amoswap.y", YGPR, YGPR, OPC_RVY_A
 } // Predicates = [HasRVYInstructions, HasStdExtZaamo]
 
 //
+// Zba Capability Address Generation Instructions
+//
+let Predicates = [HasRVYInstructions, HasStdExtZba] in {
+def YSH1ADD : RVY_rr<0b0000101, "ysh1add", YGPR, GPR, YGPR>;
+def YSH2ADD : RVY_rr<0b0001101, "ysh2add", YGPR, GPR, YGPR>;
+def YSH3ADD : RVY_rr<0b0010101, "ysh3add", YGPR, GPR, YGPR>;
+
+let append Predicates = [IsRV64] in {
+def YSH4ADD : RVY_rr<0b0011101, "ysh4add", YGPR, GPR, YGPR>;
+def YSH1ADD_UW : RVY_rr<0b0100101, "ysh1add.uw", YGPR, GPR, YGPR>;
+def YSH2ADD_UW : RVY_rr<0b0101101, "ysh2add.uw", YGPR, GPR, YGPR>;
+def YSH3ADD_UW : RVY_rr<0b0110101, "ysh3add.uw", YGPR, GPR, YGPR>;
+def YSH4ADD_UW : RVY_rr<0b0111101, "ysh4add.uw", YGPR, GPR, YGPR>;
+} // append Predicates = [IsRV64]
+} // Predicates = [HasRVYInstructions, HasStdExtZba]
+
+//
 // Compressed capability loads/stores using Zcf/Zcd encodings.
 // These only exist in RVY mode, not in RVI compatibility mode.
 //
