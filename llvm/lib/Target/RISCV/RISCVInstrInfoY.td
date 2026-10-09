@@ -229,6 +229,13 @@ def : CompressPat<(SY YGPR:$rs2, SPMem:$rs1, uimm9_lsb000:$imm),
 } // Predicates = [HasStdExtZca, IsStdExtYCapMode, IsRV32]
 
 let Predicates = [HasStdExtZca, IsStdExtYCapMode] in {
+let DecoderNamespace = "RVYOnly", hasSideEffects = 0, mayLoad = 0, mayStore = 0,
+    isMoveReg = 1, isAsCheapAsAMove = 1 in
+def C_YMV : RVInst16CR<0b1000, OPC_C2, (outs YGPRNoX0:$rs1),
+                       (ins YGPRNoX0:$rs2), "c.ymv", "$rs1, $rs2">,
+            Sched<[WriteIALU, ReadIALU]>;
+def : CompressPat<(YMV YGPRNoX0:$rs1, YGPRNoX0:$rs2),
+                  (C_YMV YGPRNoX0:$rs1, YGPRNoX0:$rs2)>;
 def : CompressPat<(YADDI YGPRC:$rd, SP_Y:$rs1, uimm10_lsb00nonzero:$imm),
                   (C_ADDI4SPN YGPRC:$rd, SP_Y:$rs1, uimm10_lsb00nonzero:$imm)>;
 def : CompressPat<(YADDI X2_Y, X2_Y, simm10_lsb0000nonzero:$imm),

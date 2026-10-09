@@ -451,7 +451,7 @@ def C_JR : RVInst16CR<0b1000, OPC_C2, (outs), (ins PtrNoX0:$rs1),
 }
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isMoveReg = 1,
-    isAsCheapAsAMove = 1 in
+    isAsCheapAsAMove = 1, append Predicates = [NotStdExtYCapMode] in
 def C_MV : RVInst16CR<0b1000, OPC_C2, (outs GPR:$rs1), (ins GPRNoX0:$rs2),
                       "c.mv", "$rs1, $rs2">,
            Sched<[WriteIALU, ReadIALU]>;
@@ -816,6 +816,7 @@ def : CompressPat<(LD GPRNoX0:$rd, SPMem:$rs1, uimm9_lsb000:$imm),
 
 def : CompressPat<(JALR NullReg, PtrNoX0:$rs1, 0),
                   (C_JR PtrNoX0:$rs1)>;
+let append Predicates = [NotStdExtYCapMode] in {
 let isCompressOnly = true in {
 def : CompressPat<(ADD GPRNoX0:$rs1, X0, GPRNoX0:$rs2),
                   (C_MV GPRNoX0:$rs1, GPRNoX0:$rs2)>;
@@ -824,6 +825,7 @@ def : CompressPat<(ADD GPRNoX0:$rs1, GPRNoX0:$rs2, X0),
 }
 def : CompressPat<(ADDI GPRNoX0:$rs1, GPRNoX0:$rs2, 0),
                   (C_MV GPRNoX0:$rs1, GPRNoX0:$rs2)>;
+} // append Predicates = [NotStdExtYCapMode]
 def : CompressPat<(EBREAK), (C_EBREAK)>;
 def : CompressPat<(UNIMP), (C_UNIMP)>;
 def : CompressPat<(JALR ReturnReg, PtrNoX0:$rs1, 0),
