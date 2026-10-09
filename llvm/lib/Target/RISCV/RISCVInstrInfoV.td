@@ -341,13 +341,13 @@ let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
 // unit-stride load vd, (rs1), vm
 class VUnitStrideLoad<RISCVWidth width, string opcodestr>
     : RVInstVLU<0b000, width, LUMOPUnitStride,
-                (outs VR:$vd), (ins GPRMemZeroOffset:$rs1, VMaskOp:$vm),
+                (outs VR:$vd), (ins BasePtrZeroOffset:$rs1, VMaskOp:$vm),
                 opcodestr, "$vd, $rs1$vm">;
 
 // unit-stride whole register load vl<nf>r.v vd, (rs1)
 class VWholeLoad<int lmul, RISCVWidth width, string opcodestr, RegisterClass VRC>
     : RVInstVLU<!sub(lmul, 1), width, LUMOPUnitStrideWholeReg, (outs VRC:$vd),
-                (ins GPRMemZeroOffset:$rs1),
+                (ins BasePtrZeroOffset:$rs1),
                 opcodestr, "$vd, $rs1"> {
   assert !and(!ge(lmul, 1), !le(lmul, 8)), "lmul must be 1-8";
 
@@ -360,7 +360,7 @@ class VWholeLoad<int lmul, RISCVWidth width, string opcodestr, RegisterClass VRC
 // unit-stride mask load vd, (rs1)
 class VUnitStrideMaskLoad<string opcodestr>
     : RVInstVLU<0b000, LSWidth8, LUMOPUnitStrideMask, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1), opcodestr, "$vd, $rs1"> {
+                (ins BasePtrZeroOffset:$rs1), opcodestr, "$vd, $rs1"> {
   let vm = 1;
 
   let VMConstraint = false;
@@ -369,25 +369,25 @@ class VUnitStrideMaskLoad<string opcodestr>
 // unit-stride fault-only-first load vd, (rs1), vm
 class VUnitStrideLoadFF<RISCVWidth width, string opcodestr>
     : RVInstVLU<0b000, width, LUMOPUnitStrideFF, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1$vm">;
 
 // strided load vd, (rs1), rs2, vm
 class VStridedLoad<RISCVWidth width, string opcodestr>
     : RVInstVLS<0b000, width, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1, $rs2$vm">;
 
 // indexed load vd, (rs1), vs2, vm
 class VIndexedLoad<RISCVMOP mop, RISCVWidth width, string opcodestr>
     : RVInstVLX<0b000, width, mop, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1, $vs2$vm">;
 
 // unit-stride segment load vd, (rs1), vm
 class VUnitStrideSegmentLoad<int nfields, RISCVWidth width, string opcodestr>
     : RVInstVLU<!sub(nfields, 1), width, LUMOPUnitStride, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -395,7 +395,7 @@ class VUnitStrideSegmentLoad<int nfields, RISCVWidth width, string opcodestr>
 // segment fault-only-first load vd, (rs1), vm
 class VUnitStrideSegmentLoadFF<int nfields, RISCVWidth width, string opcodestr>
     : RVInstVLU<!sub(nfields, 1), width, LUMOPUnitStrideFF, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -403,7 +403,7 @@ class VUnitStrideSegmentLoadFF<int nfields, RISCVWidth width, string opcodestr>
 // strided segment load vd, (rs1), rs2, vm
 class VStridedSegmentLoad<int nfields, RISCVWidth width, string opcodestr>
     : RVInstVLS<!sub(nfields, 1), width, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1, $rs2$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -412,7 +412,7 @@ class VStridedSegmentLoad<int nfields, RISCVWidth width, string opcodestr>
 class VIndexedSegmentLoad<int nfields, RISCVMOP mop, RISCVWidth width,
                           string opcodestr>
     : RVInstVLX<!sub(nfields, 1), width, mop, (outs VR:$vd),
-                (ins GPRMemZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm), opcodestr,
+                (ins BasePtrZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm), opcodestr,
                 "$vd, $rs1, $vs2$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -422,13 +422,13 @@ let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
 // unit-stride store vd, vs3, (rs1), vm
 class VUnitStrideStore<RISCVWidth width, string opcodestr>
     : RVInstVSU<0b000, width, SUMOPUnitStride, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
                 "$vs3, $rs1$vm">;
 
 // vs<lmul>r.v vd, (rs1)
 class VWholeStore<int lmul, string opcodestr, RegisterClass VRC>
     : RVInstVSU<!sub(lmul, 1), LSWidth8, SUMOPUnitStrideWholeReg, (outs),
-                (ins VRC:$vs3, GPRMemZeroOffset:$rs1),
+                (ins VRC:$vs3, BasePtrZeroOffset:$rs1),
                 opcodestr, "$vs3, $rs1"> {
   assert !and(!ge(lmul, 1), !le(lmul, 8)), "lmul must be 1-8";
 
@@ -440,7 +440,7 @@ class VWholeStore<int lmul, string opcodestr, RegisterClass VRC>
 // unit-stride mask store vd, vs3, (rs1)
 class VUnitStrideMaskStore<string opcodestr>
     : RVInstVSU<0b000, LSWidth8, SUMOPUnitStrideMask, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1), opcodestr,
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1), opcodestr,
                 "$vs3, $rs1"> {
   let vm = 1;
 }
@@ -448,19 +448,19 @@ class VUnitStrideMaskStore<string opcodestr>
 // strided store vd, vs3, (rs1), rs2, vm
 class VStridedStore<RISCVWidth width, string opcodestr>
     : RVInstVSS<0b000, width, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm),
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm),
                 opcodestr, "$vs3, $rs1, $rs2$vm">;
 
 // indexed store vd, vs3, (rs1), vs2, vm
 class VIndexedStore<RISCVMOP mop, RISCVWidth width, string opcodestr>
     : RVInstVSX<0b000, width, mop, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm),
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm),
                 opcodestr, "$vs3, $rs1, $vs2$vm">;
 
 // segment store vd, vs3, (rs1), vm
 class VUnitStrideSegmentStore<int nfields, RISCVWidth width, string opcodestr>
     : RVInstVSU<!sub(nfields, 1), width, SUMOPUnitStride, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1, VMaskOp:$vm), opcodestr,
                 "$vs3, $rs1$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -468,7 +468,7 @@ class VUnitStrideSegmentStore<int nfields, RISCVWidth width, string opcodestr>
 // segment store vd, vs3, (rs1), rs2, vm
 class VStridedSegmentStore<int nfields, RISCVWidth width, string opcodestr>
     : RVInstVSS<!sub(nfields, 1), width, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm),
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1, GPR:$rs2, VMaskOp:$vm),
                 opcodestr, "$vs3, $rs1, $rs2$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -477,7 +477,7 @@ class VStridedSegmentStore<int nfields, RISCVWidth width, string opcodestr>
 class VIndexedSegmentStore<int nfields, RISCVMOP mop, RISCVWidth width,
                            string opcodestr>
     : RVInstVSX<!sub(nfields, 1), width, mop, (outs),
-                (ins VR:$vs3, GPRMemZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm),
+                (ins VR:$vs3, BasePtrZeroOffset:$rs1, VR:$vs2, VMaskOp:$vm),
                 opcodestr, "$vs3, $rs1, $vs2$vm"> {
   assert !and(!ge(nfields, 2), !le(nfields, 8)), "nfields must be 2-8";
 }
@@ -1161,10 +1161,10 @@ def VS4R_V : VWholeStore<4, "vs4r.v", VRM4>,
 def VS8R_V : VWholeStore<8, "vs8r.v", VRM8>,
              Sched<[WriteVST8R, ReadVST8R, ReadVSTX]>;
 
-def : InstAlias<"vl1r.v $vd, $rs1", (VL1RE8_V VR:$vd,   GPRMemZeroOffset:$rs1)>;
-def : InstAlias<"vl2r.v $vd, $rs1", (VL2RE8_V VRM2:$vd, GPRMemZeroOffset:$rs1)>;
-def : InstAlias<"vl4r.v $vd, $rs1", (VL4RE8_V VRM4:$vd, GPRMemZeroOffset:$rs1)>;
-def : InstAlias<"vl8r.v $vd, $rs1", (VL8RE8_V VRM8:$vd, GPRMemZeroOffset:$rs1)>;
+def : InstAlias<"vl1r.v $vd, $rs1", (VL1RE8_V VR:$vd,   BasePtrZeroOffset:$rs1)>;
+def : InstAlias<"vl2r.v $vd, $rs1", (VL2RE8_V VRM2:$vd, BasePtrZeroOffset:$rs1)>;
+def : InstAlias<"vl4r.v $vd, $rs1", (VL4RE8_V VRM4:$vd, BasePtrZeroOffset:$rs1)>;
+def : InstAlias<"vl8r.v $vd, $rs1", (VL8RE8_V VRM8:$vd, BasePtrZeroOffset:$rs1)>;
 } // Predicates = [HasVInstructions]
 
 let Predicates = [HasVInstructions] in {
