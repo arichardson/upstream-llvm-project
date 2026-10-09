@@ -465,6 +465,11 @@ def GPRS07 : GPRRegisterClass<(add (sequence "X%u", 8, 9),
   let DiagnosticType = "InvalidRegClassGPRS07";
   let DiagnosticString = "register must be GPR from s0 to s7 (x8, x9 or x18-x23)";
 }
+def YGPRS07 : YGPRRegisterClass<(add (sequence "X%u_Y", 8, 9),
+                                     (sequence "X%u_Y", 18, 23))> {
+  let DiagnosticType = GPRS07.DiagnosticType;
+}
+defm PtrS07 : PtrRegClassByHwMode<GPRS07, YGPRS07>;
 
 def GPRX1X5 :  GPRRegisterClass<(add X1, X5)> {
   let DiagnosticType = "InvalidRegClassGPRX1X5";

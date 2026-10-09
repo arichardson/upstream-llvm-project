@@ -1,5 +1,7 @@
 # RUN: not llvm-mc -triple=riscv64 -mattr=zcmp -M no-aliases -show-encoding < %s 2>&1 \
 # RUN:     | FileCheck -check-prefixes=CHECK-ERROR %s
+# RUN: not llvm-mc -triple=riscv32 -mattr=+experimental-y,+zcmp -M no-aliases -show-encoding < %s 2>&1 \
+# RUN:     | FileCheck -check-prefixes=CHECK-ERROR %s
 
 # CHECK-ERROR: :[[@LINE+1]]:11: error: register must be GPR from s0 to s7 (x8, x9 or x18-x23)
 cm.mvsa01 a1, a2

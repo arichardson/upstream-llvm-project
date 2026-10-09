@@ -843,7 +843,8 @@ inline static unsigned encodeRegListNumRegs(unsigned NumRegs) {
   return RLISTENCODE::RA + (NumRegs - 1);
 }
 
-inline static unsigned getStackAdjBase(unsigned RlistVal, bool IsRV64) {
+inline static unsigned getStackAdjBase(unsigned RlistVal, bool IsRV64,
+                                       bool IsRVYCapMode = false) {
   assert(RlistVal >= RLISTENCODE::RA && RlistVal <= RLISTENCODE::RA_S0_S11 &&
          "Invalid Rlist");
   unsigned NumRegs = (RlistVal - RLISTENCODE::RA) + 1;
@@ -851,7 +852,11 @@ inline static unsigned getStackAdjBase(unsigned RlistVal, bool IsRV64) {
   if (RlistVal == RLISTENCODE::RA_S0_S11)
     ++NumRegs;
 
-  unsigned RegSize = IsRV64 ? 8 : 4;
+  // Each register slot is 64 bits on RV64 (XLEN=64) and on RV32Y (YLEN=64),
+  // and 32 bits on RV32I (XLEN=32). Note that Zcmp is incompatible with RV64Y,
+  // though the assembler operand parser may still call this before checking
+  // instruction predicates.
+  unsigned RegSize = (IsRV64 || IsRVYCapMode) ? 8 : 4;
   return alignTo(NumRegs * RegSize, 16);
 }
 

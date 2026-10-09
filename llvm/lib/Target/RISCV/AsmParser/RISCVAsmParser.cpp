@@ -3225,7 +3225,8 @@ ParseStatus RISCVAsmParser::parseZcmpStackAdj(OperandVector &Operands,
   unsigned RlistEncode = RegListOp->RegList.Encoding;
 
   assert(RlistEncode != RISCVZC::INVALID_RLIST);
-  unsigned StackAdjBase = RISCVZC::getStackAdjBase(RlistEncode, isRV64());
+  unsigned StackAdjBase =
+      RISCVZC::getStackAdjBase(RlistEncode, isRV64(), isRVYCapMode());
   if (Negative != ExpectNegative || StackAdjustment % 16 != 0 ||
       StackAdjustment < StackAdjBase || (StackAdjustment - StackAdjBase) > 48) {
     int64_t Lower = StackAdjBase;
