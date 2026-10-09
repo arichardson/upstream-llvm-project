@@ -1359,6 +1359,9 @@ def FeatureStdExtY
 def FeatureStdExtZyhybrid
     : RISCVExperimentalExtension<0, 910,
                                  "Hybrid Extension for RVI Compatibility">;
+def FeatureStdExtZylg
+    : RISCVExperimentalExtension<
+          0, 910, "CHERI 2-Level (Local/Global) Information Flow Control">;
 
 def HasRVYInstructions
     : Predicate<"Subtarget->hasRVYInstructions()">,

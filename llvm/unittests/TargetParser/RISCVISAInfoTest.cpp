@@ -912,6 +912,18 @@ TEST(ParseArchString, MissingDepency) {
                          .takeError()),
             "'xsfvfbfexp16e' requires 'zvfbfmin' or 'zvfbfa' extension to also "
             "be specified");
+
+  for (StringRef Input : {"rv32i_zylg0p910", "rv64i_zylg0p910"}) {
+    EXPECT_EQ(toString(RISCVISAInfo::parseArchString(Input, true).takeError()),
+              "'zylg' requires 'y' or 'zyhybrid' extension to also be "
+              "specified");
+  }
+  for (StringRef Input : {"rv32y0p910_zylg0p910", "rv64y0p910_zylg0p910",
+                          "rv32i_zyhybrid0p910_zylg0p910",
+                          "rv64i_zyhybrid0p910_zylg0p910"}) {
+    ASSERT_THAT_EXPECTED(RISCVISAInfo::parseArchString(Input, true),
+                         Succeeded());
+  }
 }
 
 TEST(ParseArchString, RejectsUnrecognizedProfileNames) {
@@ -1719,6 +1731,7 @@ Experimental extensions
     zicfilp              1.0       This is a long dummy description
     zilx                 0.1
     zyhybrid             0.910
+    zylg                 0.910
     zabhlrsc             1.0
     zvabd                0.9
     zvbc32e              0.7
