@@ -159,6 +159,21 @@ def PseudoSY : PseudoStore<"sy", YGPR>;
 } // Predicates = [HasStdExtYOrZyhybrid]
 
 //
+// Zalrsc and Zaamo Capability Instructions
+//
+let Predicates = [HasStdExtYOrZyhybrid, HasStdExtZalrsc] in {
+defm LR_Y : LR_r_aq_rl<0b011, "lr.y", YGPR, OPC_RVY_A>,
+            Sched<[/* TODO: WriteAtomicLDY, ReadAtomicLDY */]>;
+defm SC_Y : SC_r_aq_rl<0b011, "sc.y", YGPR, OPC_RVY_A>,
+            Sched<[/* TODO: WriteAtomicSTY, ReadAtomicSTY, ReadAtomicSTY */]>;
+} // Predicates = [HasStdExtYOrZyhybrid, HasStdExtZalrsc]
+
+let Predicates = [HasStdExtYOrZyhybrid, HasStdExtZaamo] in {
+defm AMOSWAP_Y : AMO_rr_aq_rl<0b00001, 0b011, "amoswap.y", YGPR, YGPR, OPC_RVY_A>,
+                 Sched<[/* TODO: WriteAtomicY, ReadAtomicYA, ReadAtomicYD */]>;
+} // Predicates = [HasStdExtYOrZyhybrid, HasStdExtZaamo]
+
+//
 // Compressed capability loads/stores using Zcf/Zcd encodings.
 // These only exist in RVY mode, not in RVI compatibility mode.
 //

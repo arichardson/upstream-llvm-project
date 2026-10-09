@@ -104,6 +104,21 @@ sc.w a0, a1, (zero)
 // CHECK-CAP-MODE-DISASM-NEXT: 00b0252f <unknown>
 // ERR-RVY: :[[#@LINE+1]]:19: error: operand must be a GPR with optional zero immediate
 amoadd.w a0, a1, (zero)
+// CHECK-NEXT: lr.y	a0, (zero)
+// CHECK-ASM-SAME: # encoding: [0x7b,0x35,0x00,0x10]
+// CHECK-CAP-MODE-DISASM-NEXT: 1000357b <unknown>
+// ERR-RVY: :[[#@LINE+1]]:11: error: operand must be a GPR with optional zero immediate
+lr.y a0, (zero)
+// CHECK-NEXT: sc.y	a0, a1, (zero)
+// CHECK-ASM-SAME: # encoding: [0x7b,0x35,0xb0,0x18]
+// CHECK-CAP-MODE-DISASM-NEXT: 18b0357b <unknown>
+// ERR-RVY: :[[#@LINE+1]]:15: error: operand must be a GPR with optional zero immediate
+sc.y a0, a1, (zero)
+// CHECK-NEXT: amoswap.y	a0, a1, (zero)
+// CHECK-ASM-SAME: # encoding: [0x7b,0x35,0xb0,0x08]
+// CHECK-CAP-MODE-DISASM-NEXT: 08b0357b <unknown>
+// ERR-RVY: :[[#@LINE+1]]:20: error: operand must be a GPR with optional zero immediate
+amoswap.y a0, a1, (zero)
 // CHECK-NEXT: amoadd.b	a0, a1, (zero)
 // CHECK-ASM-SAME: # encoding: [0x2f,0x05,0xb0,0x00]
 // CHECK-CAP-MODE-DISASM-NEXT: 00b0052f <unknown>

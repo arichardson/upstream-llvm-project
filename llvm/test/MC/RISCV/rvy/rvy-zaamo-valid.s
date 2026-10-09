@@ -274,3 +274,32 @@ amominu.w.aqrl s6, s5, (s4)
 # CHECK-ASM-NEXT: #  <MCOperand Reg:X20>
 # CHECK-ASM-NEXT: #  <MCOperand Reg:X19_Y>>
 amomaxu.w.aqrl s5, s4, (s3)
+#
+# CHECK-NEXT: amoswap.y a4, ra, (s0)
+# CHECK-ASM-SAME: encoding: [0x7b,0x37,0x14,0x08]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] AMOSWAP_Y{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X14_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X1_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X8_Y>>
+amoswap.y a4, ra, (s0)
+# CHECK-NEXT: amoswap.y.aq a4, ra, (s0)
+# CHECK-ASM-SAME: encoding: [0x7b,0x37,0x14,0x0c]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] AMOSWAP_Y_AQ{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X14_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X1_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X8_Y>>
+amoswap.y.aq a4, ra, 0(s0)
+# CHECK-NEXT: amoswap.y.rl a4, ra, (s0)
+# CHECK-ASM-SAME: encoding: [0x7b,0x37,0x14,0x0a]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] AMOSWAP_Y_RL{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X14_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X1_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X8_Y>>
+amoswap.y.rl a4, ra, (s0)
+# CHECK-NEXT: amoswap.y.aqrl a4, ra, (s0)
+# CHECK-ASM-SAME: encoding: [0x7b,0x37,0x14,0x0e]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] AMOSWAP_Y_AQRL{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X14_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X1_Y>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X8_Y>>
+amoswap.y.aqrl a4, ra, 0(s0)

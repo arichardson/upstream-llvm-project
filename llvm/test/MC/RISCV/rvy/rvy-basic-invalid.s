@@ -55,3 +55,11 @@ sy f0, 0(a0)
 // CHECK: :[[#@LINE-1]]:4: error: register must be a GPR
 yaddi f0, a0, 0
 // CHECK: :[[#@LINE-1]]:7: error: register must be a GPR
+
+/// Capability atomics require Zalrsc / Zaamo.
+lr.y a0, (a1)
+// CHECK: :[[#@LINE-1]]:1: error: instruction requires the following: 'Zalrsc' (Load-Reserved/Store-Conditional){{$}}
+sc.y a0, a1, (a2)
+// CHECK: :[[#@LINE-1]]:1: error: instruction requires the following: 'Zalrsc' (Load-Reserved/Store-Conditional){{$}}
+amoswap.y a0, a1, (a2)
+// CHECK: :[[#@LINE-1]]:1: error: instruction requires the following: 'Zaamo' (Atomic Memory Operations){{$}}
