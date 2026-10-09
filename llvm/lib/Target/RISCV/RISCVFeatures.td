@@ -277,6 +277,16 @@ def HasStdExtZabha : Predicate<"Subtarget->hasStdExtZabha()">,
                      AssemblerPredicate<(all_of FeatureStdExtZabha),
                          "'Zabha' (Byte and Halfword Atomic Memory Operations)">;
 
+def FeatureStdExtZabhlrsc
+    : RISCVExperimentalExtension<
+          1, 0, "Byte and Halfword Load-Reserved/Store-Conditional",
+          [FeatureStdExtZalrsc]>;
+def HasStdExtZabhlrsc
+    : Predicate<"Subtarget->hasStdExtZabhlrsc()">,
+      AssemblerPredicate<
+          (all_of FeatureStdExtZabhlrsc),
+          "'Zabhlrsc' (Byte and Halfword Load-Reserved/Store-Conditional)">;
+
 def FeatureStdExtZacas
     : RISCVExtension<1, 0, "Atomic Compare-And-Swap Instructions",
                      [FeatureStdExtZaamo]>,

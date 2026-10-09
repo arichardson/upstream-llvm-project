@@ -11,6 +11,7 @@
 //   - Zawrs (v1.0) : Wait-on-Reservation-Set.
 //   - Zacas (v1.0) : Atomic Compare-and-Swap.
 //   - Zabha (v1.0) : Byte and Halfword Atomic Memory Operations.
+//   - Zabhlrsc (v1.0) : Byte and Halfword Load-Reserved/Store-Conditional.
 //
 //===----------------------------------------------------------------------===//
 
@@ -212,3 +213,16 @@ defm : AMOPat<"atomic_load_umin_i16", "AMOMINU_H", XLenVT, [HasStdExtZabha]>;
 
 defm : AMOCASPat<"atomic_cmp_swap_i8", "AMOCAS_B", XLenVT, [HasStdExtZabha]>;
 defm : AMOCASPat<"atomic_cmp_swap_i16", "AMOCAS_H", XLenVT, [HasStdExtZabha]>;
+
+//===----------------------------------------------------------------------===//
+// Zabhlrsc (Byte and Halfword Load-Reserved/Store-Conditional)
+//===----------------------------------------------------------------------===//
+
+let Predicates = [HasStdExtZabhlrsc], IsSignExtendingOpW = 1 in {
+defm LR_B : LR_r_aq_rl<0b000, "lr.b">, Sched<[WriteAtomicLDW, ReadAtomicLDW]>;
+defm SC_B : SC_r_aq_rl<0b000, "sc.b">,
+            Sched<[WriteAtomicSTW, ReadAtomicSTW, ReadAtomicSTW]>;
+defm LR_H : LR_r_aq_rl<0b001, "lr.h">, Sched<[WriteAtomicLDW, ReadAtomicLDW]>;
+defm SC_H : SC_r_aq_rl<0b001, "sc.h">,
+            Sched<[WriteAtomicSTW, ReadAtomicSTW, ReadAtomicSTW]>;
+} // Predicates = [HasStdExtZabhlrsc], IsSignExtendingOpW = 1
