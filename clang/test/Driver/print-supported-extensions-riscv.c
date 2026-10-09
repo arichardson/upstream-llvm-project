@@ -253,6 +253,7 @@
 // CHECK-NEXT:     zicfilp              1.0       'Zicfilp' (Landing pad)
 // CHECK-NEXT:     zilx                 0.1       'Zilx' (Indexed Integer Load Instructions)
 // CHECK-NEXT:     zyhybrid             0.910     'Zyhybrid' (Hybrid Extension for RVI Compatibility)
+// CHECK-NEXT:     zylg                 0.910     'Zylg' (CHERI 2-Level (Local/Global) Information Flow Control)
 // CHECK-NEXT:     zabhlrsc             1.0       'Zabhlrsc' (Byte and Halfword Load-Reserved/Store-Conditional)
 // CHECK-NEXT:     zvabd                0.9       'Zvabd' (Vector Absolute Difference)
 // CHECK-NEXT:     zvbc32e              0.7       'Zvbc32e' (Vector Carryless Multiplication with 32-bits elements)

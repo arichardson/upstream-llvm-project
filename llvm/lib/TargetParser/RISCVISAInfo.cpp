@@ -789,6 +789,9 @@ Error RISCVISAInfo::checkDependency() {
                              "'xsfvfbfexp16e' requires 'zvfbfmin' or "
                              "'zvfbfa' extension to also be specified");
 
+  if (Exts.count("zylg") && !(Exts.count("y") || Exts.count("zyhybrid")))
+    return getExtensionRequiresError("zylg", "y' or 'zyhybrid");
+
   if (Exts.count("zcd"))
     for (auto Ext : ZcdOverlaps)
       if (Exts.count(Ext.str()))
