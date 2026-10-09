@@ -90,3 +90,65 @@ sc.w.rl t4, t3, (t2)
 # CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X6_Y>>
 # CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X6>>
 sc.w.aqrl t3, t2, (t1)
+#
+# CHECK-NEXT: lr.y t0, (t1)
+# CHECK-ASM-SAME: encoding: [0xfb,0x32,0x03,0x10]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] LR_Y{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X5_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X6_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X6>>
+lr.y t0, (t1)
+# CHECK-NEXT: lr.y.aq t1, (t2)
+# CHECK-ASM-SAME: encoding: [0x7b,0xb3,0x03,0x14]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] LR_Y_AQ{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X6_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X7_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X7>>
+lr.y.aq t1, 0(t2)
+# CHECK-NEXT: lr.y.rl t2, (t3)
+# CHECK-ASM-SAME: encoding: [0xfb,0x33,0x0e,0x12]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] LR_Y_RL{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X7_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X28_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X28>>
+lr.y.rl t2, (t3)
+# CHECK-NEXT: lr.y.aqrl t3, (t4)
+# CHECK-ASM-SAME: encoding: [0x7b,0xbe,0x0e,0x16]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] LR_Y_AQRL{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X28_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X29_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X29>>
+lr.y.aqrl t3, 0(t4)
+#
+# CHECK-NEXT: sc.y t6, t5, (t4)
+# CHECK-ASM-SAME: encoding: [0xfb,0xbf,0xee,0x19]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] SC_Y{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X31>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X30_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X29_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X29>>
+sc.y t6, t5, (t4)
+# CHECK-NEXT: sc.y.aq t5, t4, (t3)
+# CHECK-ASM-SAME: encoding: [0x7b,0x3f,0xde,0x1d]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] SC_Y_AQ{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X30>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X29_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X28_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X28>>
+sc.y.aq t5, t4, 0(t3)
+# CHECK-NEXT: sc.y.rl t4, t3, (t2)
+# CHECK-ASM-SAME: encoding: [0xfb,0xbe,0xc3,0x1b]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] SC_Y_RL{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X29>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X28_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X7_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X7>>
+sc.y.rl t4, t3, (t2)
+# CHECK-NEXT: sc.y.aqrl t3, t2, (t1)
+# CHECK-ASM-SAME: encoding: [0x7b,0x3e,0x73,0x1e]
+# CHECK-ASM-NEXT: # <MCInst #[[#]] SC_Y_AQRL{{$}}
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X28>
+# CHECK-ASM-NEXT: #  <MCOperand Reg:X7_Y>
+# CHECK-ASM-Y-NEXT: #  <MCOperand Reg:X6_Y>>
+# CHECK-ASM-HYBRID-NEXT: #  <MCOperand Reg:X6>>
+sc.y.aqrl t3, t2, 0(t1)

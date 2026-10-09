@@ -24,44 +24,52 @@ def ordering : RISCVOp {
 //===----------------------------------------------------------------------===//
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-class LR_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
-    : RVInstRAtomic<0b00010, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins BasePtrZeroOffset:$rs1),
+class LR_r<bit aq, bit rl, bits<3> funct3, string opcodestr,
+           DAGOperand rdOp = GPR, RISCVOpcode opcode = OPC_AMO>
+    : RVInstRAtomic<0b00010, aq, rl, funct3, opcode,
+                    (outs rdOp:$rd), (ins BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs1"> {
   let rs2 = 0;
 }
 
-multiclass LR_r_aq_rl<bits<3> funct3, string opcodestr> {
-  def ""    : LR_r<0, 0, funct3, opcodestr>;
-  def _AQ   : LR_r<1, 0, funct3, opcodestr # ".aq">;
-  def _RL   : LR_r<0, 1, funct3, opcodestr # ".rl">;
-  def _AQRL : LR_r<1, 1, funct3, opcodestr # ".aqrl">;
+multiclass LR_r_aq_rl<bits<3> funct3, string opcodestr,
+                      DAGOperand rdOp = GPR, RISCVOpcode opcode = OPC_AMO> {
+  def ""    : LR_r<0, 0, funct3, opcodestr, rdOp, opcode>;
+  def _AQ   : LR_r<1, 0, funct3, opcodestr # ".aq", rdOp, opcode>;
+  def _RL   : LR_r<0, 1, funct3, opcodestr # ".rl", rdOp, opcode>;
+  def _AQRL : LR_r<1, 1, funct3, opcodestr # ".aqrl", rdOp, opcode>;
 }
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
-class SC_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
-    : RVInstRAtomic<0b00011, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins GPR:$rs2, BasePtrZeroOffset:$rs1),
+class SC_r<bit aq, bit rl, bits<3> funct3, string opcodestr,
+           DAGOperand rs2Op = GPR, RISCVOpcode opcode = OPC_AMO>
+    : RVInstRAtomic<0b00011, aq, rl, funct3, opcode,
+                    (outs GPR:$rd), (ins rs2Op:$rs2, BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs2, $rs1">;
 
-multiclass SC_r_aq_rl<bits<3> funct3, string opcodestr> {
-  def ""    : SC_r<0, 0, funct3, opcodestr>;
-  def _AQ   : SC_r<1, 0, funct3, opcodestr # ".aq">;
-  def _RL   : SC_r<0, 1, funct3, opcodestr # ".rl">;
-  def _AQRL : SC_r<1, 1, funct3, opcodestr # ".aqrl">;
+multiclass SC_r_aq_rl<bits<3> funct3, string opcodestr,
+                      DAGOperand rs2Op = GPR, RISCVOpcode opcode = OPC_AMO> {
+  def ""    : SC_r<0, 0, funct3, opcodestr, rs2Op, opcode>;
+  def _AQ   : SC_r<1, 0, funct3, opcodestr # ".aq", rs2Op, opcode>;
+  def _RL   : SC_r<0, 1, funct3, opcodestr # ".rl", rs2Op, opcode>;
+  def _AQRL : SC_r<1, 1, funct3, opcodestr # ".aqrl", rs2Op, opcode>;
 }
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in
-class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string opcodestr>
-    : RVInstRAtomic<funct5, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins GPR:$rs2, BasePtrZeroOffset:$rs1),
+class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string opcodestr,
+             DAGOperand rdOp = GPR, DAGOperand rs2Op = GPR,
+             RISCVOpcode opcode = OPC_AMO>
+    : RVInstRAtomic<funct5, aq, rl, funct3, opcode,
+                    (outs rdOp:$rd), (ins rs2Op:$rs2, BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs2, $rs1">;
 
-multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string opcodestr> {
-  def ""    : AMO_rr<funct5, 0, 0, funct3, opcodestr>;
-  def _AQ   : AMO_rr<funct5, 1, 0, funct3, opcodestr # ".aq">;
-  def _RL   : AMO_rr<funct5, 0, 1, funct3, opcodestr # ".rl">;
-  def _AQRL : AMO_rr<funct5, 1, 1, funct3, opcodestr # ".aqrl">;
+multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string opcodestr,
+                        DAGOperand rdOp = GPR, DAGOperand rs2Op = GPR,
+                        RISCVOpcode opcode = OPC_AMO> {
+  def ""    : AMO_rr<funct5, 0, 0, funct3, opcodestr, rdOp, rs2Op, opcode>;
+  def _AQ   : AMO_rr<funct5, 1, 0, funct3, opcodestr # ".aq", rdOp, rs2Op, opcode>;
+  def _RL   : AMO_rr<funct5, 0, 1, funct3, opcodestr # ".rl", rdOp, rs2Op, opcode>;
+  def _AQRL : AMO_rr<funct5, 1, 1, funct3, opcodestr # ".aqrl", rdOp, rs2Op, opcode>;
 }
 
 //===----------------------------------------------------------------------===//
