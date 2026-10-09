@@ -9243,7 +9243,7 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
         OutChains.push_back(LoadVal.getValue(1));
         Ret = DAG.getNode(RISCVISD::TUPLE_INSERT, DL, VT, Ret, LoadVal,
                           DAG.getTargetConstant(i, DL, MVT::i32));
-        BasePtr = DAG.getNode(ISD::ADD, DL, XLenVT, BasePtr, VROffset, Flag);
+        BasePtr = DAG.getMemBasePlusOffset(BasePtr, VROffset, DL, Flag);
       }
       return DAG.getMergeValues(
           {Ret, DAG.getNode(ISD::TokenFactor, DL, MVT::Other, OutChains)}, DL);
@@ -9393,7 +9393,7 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                            Store->getBaseAlign(),
                            Store->getMemOperand()->getFlags());
         Chain = Ret.getValue(0);
-        BasePtr = DAG.getNode(ISD::ADD, DL, XLenVT, BasePtr, VROffset, Flag);
+        BasePtr = DAG.getMemBasePlusOffset(BasePtr, VROffset, DL, Flag);
       }
       return Ret;
     }
@@ -15233,7 +15233,6 @@ SDValue RISCVTargetLowering::lowerVECTOR_INTERLEAVE(SDValue Op,
     Align Alignment = DAG.getReducedAlign(VecVT, /*UseABI=*/false);
     SDValue StackPtr =
         DAG.CreateStackTemporary(MemVT.getStoreSize(), Alignment);
-    EVT PtrVT = StackPtr.getValueType();
     auto &MF = DAG.getMachineFunction();
     auto FrameIndex = cast<FrameIndexSDNode>(StackPtr.getNode())->getIndex();
     auto PtrInfo = MachinePointerInfo::getFixedStack(MF, FrameIndex);
@@ -15274,10 +15273,10 @@ SDValue RISCVTargetLowering::lowerVECTOR_INTERLEAVE(SDValue Op,
 
     SmallVector<SDValue, 8> Loads(Factor);
 
-    SDValue Increment = DAG.getTypeSize(DL, PtrVT, VecVT.getStoreSize());
+    TypeSize VecSize = VecVT.getStoreSize();
     for (unsigned i = 0; i != Factor; ++i) {
       if (i != 0)
-        StackPtr = DAG.getNode(ISD::ADD, DL, PtrVT, StackPtr, Increment);
+        StackPtr = DAG.getObjectPtrOffset(DL, StackPtr, VecSize);
 
       Loads[i] = DAG.getLoad(VecVT, DL, Chain, StackPtr, PtrInfo);
     }
@@ -16571,7 +16570,9 @@ SDValue RISCVTargetLowering::lowerMaskedGather(SDValue Op,
 
   assert(VT.getVectorElementCount() == IndexVT.getVectorElementCount() &&
          "Unexpected VTs!");
-  assert(BasePtr.getSimpleValueType() == XLenVT && "Unexpected pointer type");
+  assert(BasePtr.getSimpleValueType() ==
+             getPointerTy(DAG.getDataLayout(), MemSD->getAddressSpace()) &&
+         "Unexpected pointer type");
   // Targets have to explicitly opt-in for extending vector loads.
   assert(LoadExtType == ISD::NON_EXTLOAD &&
          "Unexpected extending MGATHER/VP_GATHER");
@@ -16669,7 +16670,9 @@ SDValue RISCVTargetLowering::lowerMaskedScatter(SDValue Op,
 
   assert(VT.getVectorElementCount() == IndexVT.getVectorElementCount() &&
          "Unexpected VTs!");
-  assert(BasePtr.getSimpleValueType() == XLenVT && "Unexpected pointer type");
+  assert(BasePtr.getSimpleValueType() ==
+             getPointerTy(DAG.getDataLayout(), MemSD->getAddressSpace()) &&
+         "Unexpected pointer type");
   // Targets have to explicitly opt-in for extending vector loads and
   // truncating vector stores.
   assert(!IsTruncatingStore && "Unexpected truncating MSCATTER/VP_SCATTER");
@@ -24049,9 +24052,11 @@ static SDValue performCONCAT_VECTORSCombine(SDNode *N, SelectionDAG &DAG,
     // Otherwise try to match (add LastPtr, Stride) or (add NextPtr, Stride)
     SDValue P1 = Ld1->getBasePtr();
     SDValue P2 = Ld2->getBasePtr();
-    if (P2.getOpcode() == ISD::ADD && P2.getOperand(0) == P1)
+    if ((P2.getOpcode() == ISD::ADD || P2.getOpcode() == ISD::PTRADD) &&
+        P2.getOperand(0) == P1)
       return {{P2.getOperand(1), false}};
-    if (P1.getOpcode() == ISD::ADD && P1.getOperand(0) == P2)
+    if ((P1.getOpcode() == ISD::ADD || P1.getOpcode() == ISD::PTRADD) &&
+        P1.getOperand(0) == P2)
       return {{P1.getOperand(1), true}};
 
     return std::nullopt;
@@ -24090,7 +24095,7 @@ static SDValue performCONCAT_VECTORSCombine(SDNode *N, SelectionDAG &DAG,
       std::holds_alternative<SDValue>(StrideVariant)
           ? std::get<SDValue>(StrideVariant)
           : DAG.getSignedConstant(std::get<int64_t>(StrideVariant), DL,
-                                  Lds[0]->getOffset().getValueType());
+                                  Subtarget.getXLenVT());
   if (MustNegateStride)
     Stride = DAG.getNegative(Stride, DL, Stride.getValueType());
 
@@ -25531,11 +25536,11 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
         // from the existence of the gather), our offsets must be sufficiently
         // aligned.
 
-        const EVT PtrVT = getPointerTy(DAG.getDataLayout());
-        assert(MGN->getBasePtr()->getValueType(0) == PtrVT);
+        assert(MGN->getBasePtr()->getValueType(0) ==
+               getPointerTy(DAG.getDataLayout(), MGN->getAddressSpace()));
         assert(IndexType == ISD::UNSIGNED_SCALED);
-        SDValue BasePtr = DAG.getNode(ISD::ADD, DL, PtrVT, MGN->getBasePtr(),
-                                      DAG.getSignedConstant(Addend, DL, PtrVT));
+        SDValue BasePtr = DAG.getMemBasePlusOffset(
+            MGN->getBasePtr(), DAG.getSignedConstant(Addend, DL, XLenVT), DL);
 
         SDValue EVL = DAG.getElementCount(DL, Subtarget.getXLenVT(),
                                           VT.getVectorElementCount());
@@ -25554,9 +25559,10 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
     if (MGN->getExtensionType() == ISD::NON_EXTLOAD &&
         matchIndexAsShuffle(VT, Index, MGN->getMask(), ShuffleMask)) {
       SDValue Load = DAG.getMaskedLoad(
-          VT, DL, MGN->getChain(), MGN->getBasePtr(), DAG.getPOISON(XLenVT),
-          MGN->getMask(), DAG.getPOISON(VT), MGN->getMemoryVT(),
-          MGN->getMemOperand(), ISD::UNINDEXED, ISD::NON_EXTLOAD);
+          VT, DL, MGN->getChain(), MGN->getBasePtr(),
+          DAG.getPOISON(MGN->getBasePtr().getValueType()), MGN->getMask(),
+          DAG.getPOISON(VT), MGN->getMemoryVT(), MGN->getMemOperand(),
+          ISD::UNINDEXED, ISD::NON_EXTLOAD);
       SDValue Shuffle =
         DAG.getVectorShuffle(VT, DL, Load, DAG.getUNDEF(VT), ShuffleMask);
       return DAG.getMergeValues({Shuffle, Load.getValue(1)}, DL);
@@ -25622,10 +25628,10 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
         matchIndexAsShuffle(VT, Index, MSN->getMask(), ShuffleMask)) {
       SDValue Shuffle = DAG.getVectorShuffle(VT, DL, MSN->getValue(),
                                              DAG.getUNDEF(VT), ShuffleMask);
-      return DAG.getMaskedStore(MSN->getChain(), DL, Shuffle, MSN->getBasePtr(),
-                                DAG.getPOISON(XLenVT), MSN->getMask(),
-                                MSN->getMemoryVT(), MSN->getMemOperand(),
-                                ISD::UNINDEXED, false);
+      return DAG.getMaskedStore(
+          MSN->getChain(), DL, Shuffle, MSN->getBasePtr(),
+          DAG.getPOISON(MSN->getBasePtr().getValueType()), MSN->getMask(),
+          MSN->getMemoryVT(), MSN->getMemOperand(), ISD::UNINDEXED, false);
     }
     break;
   }
@@ -26219,8 +26225,8 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
         /*IntID=*/DAG.getTargetConstant(Intrinsic::riscv_vlse_mask, DL, XLenVT),
         /*Passthru=*/Passthru,
         /*Ptr=*/
-        DAG.getNode(ISD::ADD, DL, XLenVT, Tuple.getOperand(3),
-                    DAG.getConstant(Offset, DL, XLenVT)),
+        DAG.getMemBasePlusOffset(Tuple.getOperand(3),
+                                 TypeSize::getFixed(Offset), DL),
         /*Stride=*/DAG.getConstant(Stride, DL, XLenVT),
         /*Mask=*/Tuple.getOperand(4),
         /*VL=*/Tuple.getOperand(5),

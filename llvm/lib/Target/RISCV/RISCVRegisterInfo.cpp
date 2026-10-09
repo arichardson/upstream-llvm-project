@@ -538,7 +538,9 @@ void RISCVRegisterInfo::lowerSegmentSpillReload(MachineBasicBlock::iterator II,
   uint16_t RegEncoding = TRI->getEncodingValue(Reg);
   Register Base = II->getOperand(1).getReg();
   bool IsBaseKill = II->getOperand(1).isKill();
-  Register NewBase = MRI.createVirtualRegister(&RISCV::GPRRegClass);
+  bool IsRVY = STI.isRVYCapMode();
+  Register NewBase = MRI.createVirtualRegister(
+      IsRVY ? &RISCV::YGPRRegClass : &RISCV::GPRRegClass);
 
   auto *OldMMO = *(II->memoperands_begin());
   LocationSize OldLoc = OldMMO->getSize();
@@ -583,7 +585,7 @@ void RISCVRegisterInfo::lowerSegmentSpillReload(MachineBasicBlock::iterator II,
         Step = VLENB;
       }
 
-      BuildMI(MBB, II, DL, TII->get(RISCV::ADD), NewBase)
+      BuildMI(MBB, II, DL, TII->get(IsRVY ? RISCV::YADD : RISCV::ADD), NewBase)
           .addReg(Base, getKillRegState(I != 0 || IsBaseKill))
           .addReg(Step, getKillRegState(Step != VLENB || IsLast));
       Base = NewBase;

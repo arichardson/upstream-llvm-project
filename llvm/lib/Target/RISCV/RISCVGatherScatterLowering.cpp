@@ -358,8 +358,8 @@ RISCVGatherScatterLoweringImpl::determineBaseAndStride(Instruction *Ptr,
 
   // A gather/scatter of a splat is a zero strided load/store.
   if (auto *BasePtr = getSplatValue(Ptr)) {
-    Type *IntPtrTy = DL->getIntPtrType(BasePtr->getType());
-    return std::make_pair(BasePtr, ConstantInt::get(IntPtrTy, 0));
+    Type *IndexTy = DL->getIndexType(BasePtr->getType());
+    return std::make_pair(BasePtr, ConstantInt::get(IndexTy, 0));
   }
 
   auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
@@ -425,20 +425,23 @@ RISCVGatherScatterLoweringImpl::determineBaseAndStride(Instruction *Ptr,
     return std::make_pair(nullptr, nullptr);
 
   // We can't extract the stride if the arithmetic is done at a different size
-  // than the pointer type. Adding the stride later may not wrap correctly.
+  // than the index type. Adding the stride later may not wrap correctly.
   // Technically we could handle wider indices, but I don't expect that in
   // practice.  Handle one special case here - constants.  This simplifies
   // writing test cases.
   Value *VecIndex = Ops[*VecOperand];
-  Type *VecIntPtrTy = DL->getIntPtrType(GEP->getType());
-  if (VecIndex->getType() != VecIntPtrTy) {
+  Type *VecIndexTy = DL->getIndexType(GEP->getType());
+  if (VecIndex->getType() != VecIndexTy) {
     auto *VecIndexC = dyn_cast<Constant>(VecIndex);
     if (!VecIndexC)
       return std::make_pair(nullptr, nullptr);
-    if (VecIndex->getType()->getScalarSizeInBits() > VecIntPtrTy->getScalarSizeInBits())
-      VecIndex = ConstantFoldCastInstruction(Instruction::Trunc, VecIndexC, VecIntPtrTy);
+    if (VecIndex->getType()->getScalarSizeInBits() >
+        VecIndexTy->getScalarSizeInBits())
+      VecIndex = ConstantFoldCastInstruction(Instruction::Trunc, VecIndexC,
+                                             VecIndexTy);
     else
-      VecIndex = ConstantFoldCastInstruction(Instruction::SExt, VecIndexC, VecIntPtrTy);
+      VecIndex =
+          ConstantFoldCastInstruction(Instruction::SExt, VecIndexC, VecIndexTy);
   }
 
   // Handle the non-recursive case.  This is what we see if the vectorizer
@@ -454,13 +457,13 @@ RISCVGatherScatterLoweringImpl::determineBaseAndStride(Instruction *Ptr,
     Value *BasePtr =
         Builder.CreateGEP(SourceTy, ScalarBase, ArrayRef(Ops).drop_front());
 
-    // Convert stride to pointer size if needed.
-    Type *IntPtrTy = DL->getIntPtrType(BasePtr->getType());
-    assert(Stride->getType() == IntPtrTy && "Unexpected type");
+    // Convert stride to index size if needed.
+    Type *IndexTy = DL->getIndexType(BasePtr->getType());
+    assert(Stride->getType() == IndexTy && "Unexpected type");
 
     // Scale the stride by the size of the indexed type.
     if (TypeScale != 1)
-      Stride = Builder.CreateMul(Stride, ConstantInt::get(IntPtrTy, TypeScale));
+      Stride = Builder.CreateMul(Stride, ConstantInt::get(IndexTy, TypeScale));
 
     auto P = std::make_pair(BasePtr, Stride);
     StridedAddrs[GEP] = P;
@@ -494,13 +497,13 @@ RISCVGatherScatterLoweringImpl::determineBaseAndStride(Instruction *Ptr,
   Builder.SetInsertPoint(
       BasePhi->getIncomingBlock(1 - IncrementingBlock)->getTerminator());
 
-  // Convert stride to pointer size if needed.
-  Type *IntPtrTy = DL->getIntPtrType(BasePtr->getType());
-  assert(Stride->getType() == IntPtrTy && "Unexpected type");
+  // Convert stride to index size if needed.
+  Type *IndexTy = DL->getIndexType(BasePtr->getType());
+  assert(Stride->getType() == IndexTy && "Unexpected type");
 
   // Scale the stride by the size of the indexed type.
   if (TypeScale != 1)
-    Stride = Builder.CreateMul(Stride, ConstantInt::get(IntPtrTy, TypeScale));
+    Stride = Builder.CreateMul(Stride, ConstantInt::get(IndexTy, TypeScale));
 
   auto P = std::make_pair(BasePtr, Stride);
   StridedAddrs[GEP] = P;

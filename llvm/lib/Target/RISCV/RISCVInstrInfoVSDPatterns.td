@@ -39,24 +39,24 @@ multiclass VPatUSLoadStoreSDNode<ValueType type,
   defvar load_instr = !cast<Instruction>("PseudoVLE"#sew#"_V_"#vlmul.MX);
   defvar store_instr = !cast<Instruction>("PseudoVSE"#sew#"_V_"#vlmul.MX);
   // Load
-  def : Pat<(type (load (XLenVT GPR:$rs1))),
-            (load_instr (type (IMPLICIT_DEF)), GPR:$rs1, avl,
+  def : Pat<(type (load (PtrVT BasePtrZeroOffset:$rs1))),
+            (load_instr (type (IMPLICIT_DEF)), BasePtrZeroOffset:$rs1, avl,
                         log2sew, TA_MA)>;
   // Store
-  def : Pat<(store (type regclass:$rs2), (XLenVT GPR:$rs1)),
-            (store_instr reg_class:$rs2, GPR:$rs1, avl, log2sew)>;
+  def : Pat<(store (type regclass:$rs2), (PtrVT BasePtrZeroOffset:$rs1)),
+            (store_instr reg_class:$rs2, BasePtrZeroOffset:$rs1, avl, log2sew)>;
 }
 
 multiclass VPatUSMaskLoadStoreSDNode<MTypeInfo m> {
   defvar load_instr = !cast<Instruction>("PseudoVLM_V_"#m.BX);
   defvar store_instr = !cast<Instruction>("PseudoVSM_V_"#m.BX);
   // Load
-  def : Pat<(m.Mask (load GPR:$rs1)),
-            (load_instr (m.Mask (IMPLICIT_DEF)), GPR:$rs1, m.AVL,
+  def : Pat<(m.Mask (load (PtrVT BasePtrZeroOffset:$rs1))),
+            (load_instr (m.Mask (IMPLICIT_DEF)), BasePtrZeroOffset:$rs1, m.AVL,
                          m.Log2SEW, TA_MA)>;
   // Store
-  def : Pat<(store (m.Mask VR:$rs2), GPR:$rs1),
-            (store_instr VR:$rs2, GPR:$rs1, m.AVL, m.Log2SEW)>;
+  def : Pat<(store (m.Mask VR:$rs2), (PtrVT BasePtrZeroOffset:$rs1)),
+            (store_instr VR:$rs2, BasePtrZeroOffset:$rs1, m.AVL, m.Log2SEW)>;
 }
 
 class VPatBinarySDNode_VV<SDPatternOperator vop,
