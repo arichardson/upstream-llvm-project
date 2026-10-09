@@ -29,7 +29,7 @@ def simm12_lsb00000 : RISCVOp,
 //===----------------------------------------------------------------------===//
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 class CBO_r<bits<12> optype, string opcodestr>
-    : RVInstI<0b010, OPC_MISC_MEM, (outs), (ins GPRMemZeroOffset:$rs1),
+    : RVInstI<0b010, OPC_MISC_MEM, (outs), (ins BasePtrZeroOffset:$rs1),
               opcodestr, "$rs1"> {
   let imm12 = optype;
   let rd = 0b00000;
