@@ -310,6 +310,34 @@ def YMODESWI : RVY_modesw<0b00001, "ymodeswi">;
 // Codegen patterns
 //===----------------------------------------------------------------------===//
 
+def sh4add_op : ComplexPattern<XLenVT, 1, "selectSHXADDOp<4>", [], [], 6>;
+def sh4add_uw_op : ComplexPattern<XLenVT, 1, "selectSHXADD_UWOp<4>", [], [], 6>;
+
+multiclass YShxAddPat<int i, Instruction yshxadd> {
+  def : Pat<(ptradd YGPR:$rs2, (shl GPR:$rs1, (XLenVT i))),
+            (yshxadd GPRNoX0:$rs1, YGPR:$rs2)>;
+  defvar pat = !cast<ComplexPattern>("sh"#i#"add_op");
+  def : Pat<(ptradd YGPR:$rs2, pat:$rs1),
+            (yshxadd pat:$rs1, YGPR:$rs2)>;
+}
+
+multiclass YShxAdd_UWPat<int i, Instruction yshxadd_uw, Instruction yshxadd> {
+  def : Pat<(ptradd YGPR:$rs2, (shl (and GPR:$rs1, 0xFFFFFFFF), (i64 i))),
+            (yshxadd_uw GPRNoX0:$rs1, YGPR:$rs2)>;
+  defvar pat = !cast<ComplexPattern>("sh"#i#"add_uw_op");
+  def : Pat<(ptradd YGPR:$rs2, pat:$rs1),
+            (yshxadd_uw pat:$rs1, YGPR:$rs2)>;
+  def : Pat<(ptradd YGPR:$rs2,
+                    (and (shl GPR:$rs1, (i64 i)),
+                         (i64 !sub(!shl(0x100000000, i), 1)))),
+            (yshxadd_uw GPRNoX0:$rs1, YGPR:$rs2)>;
+  def : Pat<(ptradd YGPR:$rs2, (and GPR:$rs1, (i64 !shl(0xFFFFFFFF, i)))),
+            (yshxadd_uw (XLenVT (SRLI GPR:$rs1, i)), YGPR:$rs2)>;
+  def : Pat<(ptradd YGPR:$rs2,
+                    (and GPR:$rs1, (i64 !and(0xFFFFFFFF, !shl(-1, i))))),
+            (yshxadd (XLenVT (SRLIW GPR:$rs1, i)), YGPR:$rs2)>;
+}
+
 let Predicates = [IsStdExtYCapMode] in {
 def : LdPat<load, LY, YLenVT>;
 def : StPat<store, SY, YGPR, YLenVT>;
@@ -324,4 +352,20 @@ def : Pat<(riscv_sw_guarded_brind (ptradd YGPRX7:$rs1, simm12_lo:$imm12)),
 def : Pat<(brind (ptradd YGPRJALRNonX7:$rs1, simm12_lo:$imm12)),
           (PseudoBRIND YGPRJALRNonX7:$rs1, simm12_lo:$imm12)>;
 defm Select_YGPR : SelectCC_GPR_rrirr<YGPR, YLenVT>;
+
+let append Predicates = [HasStdExtZba] in {
+foreach i = {1, 2, 3} in {
+  defvar yshxadd = !cast<Instruction>("YSH"#i#"ADD");
+  defm : YShxAddPat<i, yshxadd>;
+}
+
+let append Predicates = [IsRV64] in {
+defm : YShxAddPat<4, YSH4ADD>;
+foreach i = {1, 2, 3, 4} in {
+  defvar yshxadd = !cast<Instruction>("YSH"#i#"ADD");
+  defvar yshxadd_uw = !cast<Instruction>("YSH"#i#"ADD_UW");
+  defm : YShxAdd_UWPat<i, yshxadd_uw, yshxadd>;
+}
+} // append Predicates = [IsRV64]
+} // append Predicates = [HasStdExtZba]
 } // Predicates = [IsStdExtYCapMode]

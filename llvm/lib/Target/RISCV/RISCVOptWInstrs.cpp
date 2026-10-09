@@ -292,6 +292,14 @@ static bool hasAllNBitUsers(const MachineInstr &OrigMI,
           break;
         Worklist.emplace_back(UserMI, Bits);
         break;
+      case RISCV::YSH1ADD_UW:
+      case RISCV::YSH2ADD_UW:
+      case RISCV::YSH3ADD_UW:
+      case RISCV::YSH4ADD_UW:
+        // Operand 1 is implicitly zero extended.
+        if (OpIdx == 1 && Bits >= 32)
+          break;
+        return false;
 
       case RISCV::BEXTI:
         if (UserMI->getOperand(2).getImm() >= Bits)

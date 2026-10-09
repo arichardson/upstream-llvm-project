@@ -4747,8 +4747,12 @@ bool RISCVDAGToDAGISel::hasAllNBitUsers(SDNode *Node, unsigned Bits,
     case RISCV::SH1ADD_UW:
     case RISCV::SH2ADD_UW:
     case RISCV::SH3ADD_UW:
-      // The first operand to add.uw/shXadd.uw is implicitly zero extended from
-      // 32 bits.
+    case RISCV::YSH1ADD_UW:
+    case RISCV::YSH2ADD_UW:
+    case RISCV::YSH3ADD_UW:
+    case RISCV::YSH4ADD_UW:
+      // The first operand to add.uw/(y)shXadd.uw is implicitly zero extended
+      // from 32 bits.
       if (Use.getOperandNo() == 0 && Bits >= 32)
         break;
       return false;

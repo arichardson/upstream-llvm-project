@@ -315,7 +315,8 @@ void RISCVRegisterInfo::adjustReg(MachineBasicBlock &MBB,
     // Get vlenb and multiply vlen with the number of vector registers.
     Register ScratchReg = DestReg;
     if (DestReg == SrcReg || IsRVY)
-      ScratchReg = MRI.createVirtualRegister(&RISCV::GPRRegClass);
+      ScratchReg = MRI.createVirtualRegister(
+          IsRVY ? &RISCV::GPRNoX0RegClass : &RISCV::GPRRegClass);
 
     assert(ScalableValue > 0 && "There is no need to get VLEN scaled value.");
     assert(ScalableValue % RISCV::RVVBytesPerBlock == 0 &&
@@ -354,11 +355,19 @@ void RISCVRegisterInfo::adjustReg(MachineBasicBlock &MBB,
         BuildMI(MBB, II, DL, TII->get(RISCV::PseudoReadVLENB), ScratchReg)
             .setMIFlag(Flag);
 
-      if (!IsRVY && !IsSub && ST.hasStdExtZba() &&
-          (NumOfVReg == 2 || NumOfVReg == 4 || NumOfVReg == 8)) {
-        unsigned Opc = NumOfVReg == 2
-                           ? RISCV::SH1ADD
-                           : (NumOfVReg == 4 ? RISCV::SH2ADD : RISCV::SH3ADD);
+      if (!IsSub && ST.hasStdExtZba() &&
+          (NumOfVReg == 2 || NumOfVReg == 4 || NumOfVReg == 8 ||
+           (NumOfVReg == 16 && IsRVY && ST.is64Bit()))) {
+        unsigned Opc;
+        if (IsRVY)
+          Opc = NumOfVReg == 2   ? RISCV::YSH1ADD
+                : NumOfVReg == 4 ? RISCV::YSH2ADD
+                : NumOfVReg == 8 ? RISCV::YSH3ADD
+                                 : RISCV::YSH4ADD;
+        else
+          Opc = NumOfVReg == 2
+                    ? RISCV::SH1ADD
+                    : (NumOfVReg == 4 ? RISCV::SH2ADD : RISCV::SH3ADD);
         BuildMI(MBB, II, DL, TII->get(Opc), DestReg)
             .addReg(ScratchReg, RegState::Kill)
             .addReg(SrcReg)
