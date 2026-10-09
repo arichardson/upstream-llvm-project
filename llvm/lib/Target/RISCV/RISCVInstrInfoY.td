@@ -341,6 +341,10 @@ multiclass YShxAdd_UWPat<int i, Instruction yshxadd_uw, Instruction yshxadd> {
 let Predicates = [IsStdExtYCapMode] in {
 def : LdPat<load, LY, YLenVT>;
 def : StPat<store, SY, YGPR, YLenVT>;
+def : Pat<(XLenVT (ptrtoaddr YGPR:$rs1)),
+          (XLenVT (EXTRACT_SUBREG YGPR:$rs1, sub_cap_addr))>;
+def : Pat<(ptradd YGPR:$rs1, (sub GPR:$rs2, (XLenVT (ptrtoaddr YGPR:$rs1)))),
+          (YADDRW YGPR:$rs1, GPR:$rs2)>;
 def : Pat<(ptradd YGPR:$rs1, XLenVT:$rs2), (YADD YGPR:$rs1, GPRNoX0:$rs2)>;
 def : Pat<(ptradd YGPR:$rs1, simm12_lo:$imm12),
           (YADDI YGPR:$rs1, simm12_lo:$imm12)>;
