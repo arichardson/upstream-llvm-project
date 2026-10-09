@@ -1356,6 +1356,9 @@ def HasStdExtZbkbOrP
 def FeatureStdExtY
     : RISCVExperimentalExtension<0, 910, "'Base Y' (CHERI)", [],
                                  "IsRVYCapMode">;
+def FeatureStdExtZybndsrdw
+    : RISCVExperimentalExtension<
+          0, 910, "CHERI Bounding to Representable Lengths">;
 def FeatureStdExtZyhybrid
     : RISCVExperimentalExtension<0, 910,
                                  "Hybrid Extension for RVI Compatibility">;
@@ -1368,6 +1371,10 @@ def HasRVYInstructions
       AssemblerPredicate<(any_of FeatureStdExtY, FeatureStdExtZyhybrid),
                          "'Base Y' (CHERI) or "
                          "'Zyhybrid' (Hybrid Extension for RVI Compatibility)">;
+def HasStdExtZybndsrdw
+    : Predicate<"Subtarget->hasStdExtZybndsrdw()">,
+      AssemblerPredicate<(all_of FeatureStdExtZybndsrdw),
+                         "'Zybndsrdw' (CHERI Bounding to Representable Lengths)">;
 def HasStdExtZyhybrid
     : Predicate<"Subtarget->hasStdExtZyhybrid()">,
       AssemblerPredicate<(all_of FeatureStdExtZyhybrid),

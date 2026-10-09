@@ -252,6 +252,7 @@
 // CHECK-NEXT:     zibi                 0.1       'Zibi' (Branch with Immediate)
 // CHECK-NEXT:     zicfilp              1.0       'Zicfilp' (Landing pad)
 // CHECK-NEXT:     zilx                 0.1       'Zilx' (Indexed Integer Load Instructions)
+// CHECK-NEXT:     zybndsrdw            0.910     'Zybndsrdw' (CHERI Bounding to Representable Lengths)
 // CHECK-NEXT:     zyhybrid             0.910     'Zyhybrid' (Hybrid Extension for RVI Compatibility)
 // CHECK-NEXT:     zylg                 0.910     'Zylg' (CHERI 2-Level (Local/Global) Information Flow Control)
 // CHECK-NEXT:     zabhlrsc             1.0       'Zabhlrsc' (Byte and Halfword Load-Reserved/Store-Conditional)

@@ -69,6 +69,7 @@
 ; CHECK-NEXT:   experimental-zvvmtls             - 'Zvvmtls' (Matrix Tile Load/Store).
 ; CHECK-NEXT:   experimental-zvvmttls            - 'Zvvmttls' (Transposing Matrix Tile Load/Store).
 ; CHECK-NEXT:   experimental-zvzip               - 'Zvzip' (Vector Reordering Structured Data).
+; CHECK-NEXT:   experimental-zybndsrdw           - 'Zybndsrdw' (CHERI Bounding to Representable Lengths).
 ; CHECK-NEXT:   experimental-zyhybrid            - 'Zyhybrid' (Hybrid Extension for RVI Compatibility).
 ; CHECK-NEXT:   experimental-zylg                - 'Zylg' (CHERI 2-Level (Local/Global) Information Flow Control).
 ; CHECK-NEXT:   f                                - 'F' (Single-Precision Floating-Point).

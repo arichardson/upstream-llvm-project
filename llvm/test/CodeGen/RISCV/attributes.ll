@@ -346,6 +346,8 @@
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-y -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64Y %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-y,+experimental-zyhybrid -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64Y-ZYHYBRID %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zyhybrid -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64I-ZYHYBRID %s
+; RUN: llc -mtriple=riscv64 -mattr=+experimental-y,+experimental-zybndsrdw -target-abi l64pc128 %s -o - | FileCheck --check-prefix=RV64Y-ZYBNDSRDW %s
+; RUN: llc -mtriple=riscv64 -mattr=+experimental-zyhybrid,+experimental-zybndsrdw -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64I-ZYHYBRID-ZYBNDSRDW %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-y,+experimental-zylg -target-abi l64pc128 %s -o - | FileCheck --check-prefix=RV64Y-ZYLG %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zyhybrid,+experimental-zylg -target-abi lp64 %s -o - | FileCheck --check-prefix=RV64I-ZYHYBRID-ZYLG %s
 ; RUN: llc -mtriple=riscv64 -mattr=+experimental-zabhlrsc %s -o - | FileCheck --check-prefix=RV64ZABHLRSC %s
@@ -721,6 +723,8 @@
 ; RV64Y: .attribute 5, "rv64y0p910"
 ; RV64Y-ZYHYBRID: .attribute 5, "rv64y0p910_zyhybrid0p910"
 ; RV64I-ZYHYBRID: .attribute 5, "rv64i2p1_zyhybrid0p910"
+; RV64Y-ZYBNDSRDW: .attribute 5, "rv64y0p910_zybndsrdw0p910"
+; RV64I-ZYHYBRID-ZYBNDSRDW: .attribute 5, "rv64i2p1_zybndsrdw0p910_zyhybrid0p910"
 ; RV64Y-ZYLG: .attribute 5, "rv64y0p910_zylg0p910"
 ; RV64I-ZYHYBRID-ZYLG: .attribute 5, "rv64i2p1_zyhybrid0p910_zylg0p910"
 ; RV64ZABHLRSC: .attribute 5, "rv64i2p1_zabhlrsc1p0_zalrsc1p0"
