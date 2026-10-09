@@ -112,6 +112,9 @@ def SDTUnaryOp  : SDTypeProfile<1, 1, []>;                   // for bitconvert.
 def SDTPtrAddOp : SDTypeProfile<1, 2, [     // ptradd
   SDTCisSameAs<0, 1>, SDTCisInt<2>, SDTCisPtrTy<1>
 ]>;
+def SDTPtrToAddrOp : SDTypeProfile<1, 1, [  // ptrtoaddr
+  SDTCisInt<0>, SDTCisPtrTy<1>, SDTCisSameNumEltsAs<0, 1>
+]>;
 def SDTIntBinOp : SDTypeProfile<1, 2, [     // add, and, or, xor, udiv, etc.
   SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisInt<0>
 ]>;
@@ -453,6 +456,7 @@ def tblockaddress: SDNode<"ISD::TargetBlockAddress",  SDTPtrLeaf, [],
 def add        : SDNode<"ISD::ADD"       , SDTIntBinOp   ,
                         [SDNPCommutative, SDNPAssociative]>;
 def ptradd     : SDNode<"ISD::PTRADD"    , SDTPtrAddOp, []>;
+def ptrtoaddr  : SDNode<"ISD::PTRTOADDR" , SDTPtrToAddrOp, []>;
 def sub        : SDNode<"ISD::SUB"       , SDTIntBinOp>;
 def mul        : SDNode<"ISD::MUL"       , SDTIntBinOp,
                         [SDNPCommutative, SDNPAssociative]>;

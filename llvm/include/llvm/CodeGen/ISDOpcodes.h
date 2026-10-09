@@ -1598,6 +1598,10 @@ enum NodeType {
   /// ptr = PTRADD ptr, offset
   PTRADD,
 
+  /// PTRTOADDR extracts the address of a CHERI capability pointer.
+  /// addr = PTRTOADDR ptr
+  PTRTOADDR,
+
 // Vector Predication
 #define BEGIN_REGISTER_VP_SDNODE(VPSDID, ...) VPSDID,
 #include "llvm/IR/VPIntrinsics.def"

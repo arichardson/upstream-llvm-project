@@ -422,6 +422,7 @@ namespace {
     SDValue visitADDLike(SDNode *N);
     SDValue visitADDLikeCommutative(SDValue N0, SDValue N1, const SDLoc &DL);
     SDValue visitPTRADD(SDNode *N);
+    SDValue visitPTRTOADDR(SDNode *N);
     SDValue visitSUB(SDNode *N);
     SDValue visitADDSAT(SDNode *N);
     SDValue visitSUBSAT(SDNode *N);
@@ -1970,6 +1971,7 @@ SDValue DAGCombiner::visit(SDNode *N) {
   case ISD::MERGE_VALUES:       return visitMERGE_VALUES(N);
   case ISD::ADD:                return visitADD(N);
   case ISD::PTRADD:             return visitPTRADD(N);
+  case ISD::PTRTOADDR:          return visitPTRTOADDR(N);
   case ISD::SUB:                return visitSUB(N);
   case ISD::SADDSAT:
   case ISD::UADDSAT:            return visitADDSAT(N);
@@ -4276,6 +4278,23 @@ static SDValue tryFoldToZero(const SDLoc &DL, const TargetLowering &TLI, EVT VT,
     return DAG.getConstant(0, DL, VT);
   if (!LegalOperations || TLI.isOperationLegal(ISD::BUILD_VECTOR, VT))
     return DAG.getConstant(0, DL, VT);
+  return SDValue();
+}
+
+SDValue DAGCombiner::visitPTRTOADDR(SDNode *N) {
+  SDValue N0 = N->getOperand(0);
+  EVT VT = N->getValueType(0);
+  SDLoc DL(N);
+
+  if (N0.getOpcode() == ISD::POISON)
+    return DAG.getPOISON(VT);
+  if (N0.isUndef())
+    return DAG.getUNDEF(VT);
+  if (isNullOrNullSplat(N0))
+    return DAG.getConstant(0, DL, VT);
+  if (N0.getOpcode() == ISD::PTRADD && isNullOrNullSplat(N0.getOperand(0)))
+    return N0.getOperand(1);
+
   return SDValue();
 }
 

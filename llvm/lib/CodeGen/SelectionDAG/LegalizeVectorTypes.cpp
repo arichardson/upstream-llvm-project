@@ -155,6 +155,7 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::SIGN_EXTEND:
   case ISD::SINT_TO_FP:
   case ISD::TRUNCATE:
+  case ISD::PTRTOADDR:
   case ISD::UINT_TO_FP:
   case ISD::ZERO_EXTEND:
   case ISD::FCANONICALIZE:
@@ -915,6 +916,7 @@ bool DAGTypeLegalizer::ScalarizeVectorOperand(SDNode *N, unsigned OpNo) {
   case ISD::ZERO_EXTEND:
   case ISD::SIGN_EXTEND:
   case ISD::TRUNCATE:
+  case ISD::PTRTOADDR:
   case ISD::FP_TO_SINT:
   case ISD::FP_TO_UINT:
   case ISD::SINT_TO_FP:
@@ -1558,6 +1560,7 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FTRUNC:
   case ISD::SINT_TO_FP:
   case ISD::TRUNCATE:
+  case ISD::PTRTOADDR:
   case ISD::UINT_TO_FP:
   case ISD::FCANONICALIZE:
   case ISD::AssertNoFPClass:
@@ -3956,6 +3959,7 @@ bool DAGTypeLegalizer::SplitVectorOperand(SDNode *N, unsigned OpNo) {
   case ISD::SIGN_EXTEND:
   case ISD::ZERO_EXTEND:
   case ISD::ANY_EXTEND:
+  case ISD::PTRTOADDR:
   case ISD::FTRUNC:
   case ISD::LROUND:
   case ISD::LLROUND:
@@ -5558,6 +5562,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::SIGN_EXTEND:
   case ISD::SINT_TO_FP:
   case ISD::TRUNCATE:
+  case ISD::PTRTOADDR:
   case ISD::UINT_TO_FP:
   case ISD::ZERO_EXTEND:
   case ISD::CONVERT_FROM_ARBITRARY_FP:
@@ -7958,6 +7963,7 @@ bool DAGTypeLegalizer::WidenVectorOperand(SDNode *N, unsigned OpNo) {
   case ISD::UINT_TO_FP:
   case ISD::STRICT_UINT_TO_FP:
   case ISD::TRUNCATE:
+  case ISD::PTRTOADDR:
   case ISD::CONVERT_FROM_ARBITRARY_FP:
   case ISD::CONVERT_TO_ARBITRARY_FP:
     Res = WidenVecOp_Convert(N);

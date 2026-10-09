@@ -122,7 +122,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   default:
     // If this assert fails, add/remove the newly added/removed opcode from the
     // switch and update the expected value.
-    static_assert(ISD::BUILTIN_OP_END == 477, "Unexpected number of opcodes");
+    static_assert(ISD::BUILTIN_OP_END == 478, "Unexpected number of opcodes");
     if (getOpcode() < ISD::BUILTIN_OP_END)
       return "<<Unknown DAG Node>>";
     if (isMachineOpcode()) {
@@ -344,6 +344,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   // Binary operators
   case ISD::ADD:                        return "add";
   case ISD::PTRADD:                     return "ptradd";
+  case ISD::PTRTOADDR:                  return "ptrtoaddr";
   case ISD::SUB:                        return "sub";
   case ISD::MUL:                        return "mul";
   case ISD::MULHU:                      return "mulhu";

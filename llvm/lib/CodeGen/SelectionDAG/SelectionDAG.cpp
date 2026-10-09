@@ -7381,6 +7381,29 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
       return getVScale(DL, VT,
                        N1.getConstantOperandAPInt(0).trunc(VT.getSizeInBits()));
     break;
+  case ISD::PTRTOADDR:
+    assert(VT.isInteger() && N1.getValueType().isCheriCapability() &&
+           "Invalid PTRTOADDR!");
+    assert(VT.isVector() == N1.getValueType().isVector() &&
+           "PTRTOADDR result type should be vector iff the operand "
+           "type is vector!");
+    assert((!VT.isVector() || VT.getVectorElementCount() ==
+                                  N1.getValueType().getVectorElementCount()) &&
+           "Vector element count mismatch!");
+    assert(VT.getScalarSizeInBits() * 2 ==
+               N1.getValueType().getScalarSizeInBits() &&
+           "Invalid PTRTOADDR bitwidth!");
+    if (OpOpcode == ISD::POISON)
+      return getPOISON(VT);
+    if (N1.isUndef())
+      return getUNDEF(VT);
+    if (isNullConstant(N1) || ISD::isConstantSplatVectorAllZeros(N1.getNode()))
+      return getConstant(0, DL, VT);
+    if (OpOpcode == ISD::PTRADD &&
+        (isNullConstant(N1.getOperand(0)) ||
+         ISD::isConstantSplatVectorAllZeros(N1.getOperand(0).getNode())))
+      return N1.getOperand(1);
+    break;
   case ISD::ANY_EXTEND_VECTOR_INREG:
   case ISD::ZERO_EXTEND_VECTOR_INREG:
   case ISD::SIGN_EXTEND_VECTOR_INREG:

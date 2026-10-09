@@ -3017,7 +3017,13 @@ void SelectionDAGBuilder::visitSwitchCase(CaseBlock &CB,
       // If a pointer's DAG type is larger than its memory type then the DAG
       // values are zero-extended. This breaks signed comparisons so truncate
       // back to the underlying type before doing the compare.
-      if (CondLHS.getValueType() != MemVT) {
+      if (CondLHS.getValueType().isCheriCapability()) {
+        EVT AddrVT = TLI.getValueType(
+            DAG.getDataLayout(),
+            DAG.getDataLayout().getAddressType(CB.CmpLHS->getType()));
+        CondLHS = DAG.getNode(ISD::PTRTOADDR, getCurSDLoc(), AddrVT, CondLHS);
+        CondRHS = DAG.getNode(ISD::PTRTOADDR, getCurSDLoc(), AddrVT, CondRHS);
+      } else if (CondLHS.getValueType() != MemVT) {
         CondLHS = DAG.getPtrExtOrTrunc(CondLHS, getCurSDLoc(), MemVT);
         CondRHS = DAG.getPtrExtOrTrunc(CondRHS, getCurSDLoc(), MemVT);
       }
@@ -3883,15 +3889,23 @@ void SelectionDAGBuilder::visitICmp(const ICmpInst &I) {
   ISD::CondCode Opcode = getICmpCondCode(predicate);
 
   auto &TLI = DAG.getTargetLoweringInfo();
-  EVT MemVT =
-      TLI.getMemValueType(DAG.getDataLayout(), I.getOperand(0)->getType());
+  if (Op1.getValueType().isCheriCapability()) {
+    EVT AddrVT = TLI.getValueType(
+        DAG.getDataLayout(),
+        DAG.getDataLayout().getAddressType(I.getOperand(0)->getType()));
+    Op1 = DAG.getNode(ISD::PTRTOADDR, getCurSDLoc(), AddrVT, Op1);
+    Op2 = DAG.getNode(ISD::PTRTOADDR, getCurSDLoc(), AddrVT, Op2);
+  } else {
+    EVT MemVT =
+        TLI.getMemValueType(DAG.getDataLayout(), I.getOperand(0)->getType());
 
-  // If a pointer's DAG type is larger than its memory type then the DAG values
-  // are zero-extended. This breaks signed comparisons so truncate back to the
-  // underlying type before doing the compare.
-  if (Op1.getValueType() != MemVT) {
-    Op1 = DAG.getPtrExtOrTrunc(Op1, getCurSDLoc(), MemVT);
-    Op2 = DAG.getPtrExtOrTrunc(Op2, getCurSDLoc(), MemVT);
+    // If a pointer's DAG type is larger than its memory type then the DAG
+    // values are zero-extended. This breaks signed comparisons so truncate back
+    // to the underlying type before doing the compare.
+    if (Op1.getValueType() != MemVT) {
+      Op1 = DAG.getPtrExtOrTrunc(Op1, getCurSDLoc(), MemVT);
+      Op2 = DAG.getPtrExtOrTrunc(Op2, getCurSDLoc(), MemVT);
+    }
   }
 
   SDNodeFlags Flags;
@@ -4185,6 +4199,10 @@ void SelectionDAGBuilder::visitPtrToAddr(const User &I) {
   // By definition the type of the ptrtoaddr must be equal to the address type.
   const auto &TLI = DAG.getTargetLoweringInfo();
   EVT AddrVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+  if (N.getValueType().isCheriCapability()) {
+    setValue(&I, DAG.getNode(ISD::PTRTOADDR, getCurSDLoc(), AddrVT, N));
+    return;
+  }
   // The address width must be smaller or equal to the pointer representation
   // width, so we lower ptrtoaddr as a truncate (possibly folded to a no-op).
   N = DAG.getNode(ISD::TRUNCATE, getCurSDLoc(), AddrVT, N);
@@ -4198,9 +4216,16 @@ void SelectionDAGBuilder::visitPtrToInt(const User &I) {
   auto &TLI = DAG.getTargetLoweringInfo();
   EVT DestVT = DAG.getTargetLoweringInfo().getValueType(DAG.getDataLayout(),
                                                         I.getType());
-  EVT PtrMemVT =
-      TLI.getMemValueType(DAG.getDataLayout(), I.getOperand(0)->getType());
-  N = DAG.getPtrExtOrTrunc(N, getCurSDLoc(), PtrMemVT);
+  if (N.getValueType().isCheriCapability()) {
+    EVT AddrVT = TLI.getValueType(
+        DAG.getDataLayout(),
+        DAG.getDataLayout().getAddressType(I.getOperand(0)->getType()));
+    N = DAG.getNode(ISD::PTRTOADDR, getCurSDLoc(), AddrVT, N);
+  } else {
+    EVT PtrMemVT =
+        TLI.getMemValueType(DAG.getDataLayout(), I.getOperand(0)->getType());
+    N = DAG.getPtrExtOrTrunc(N, getCurSDLoc(), PtrMemVT);
+  }
   N = DAG.getZExtOrTrunc(N, getCurSDLoc(), DestVT);
   setValue(&I, N);
 }
@@ -4211,6 +4236,15 @@ void SelectionDAGBuilder::visitIntToPtr(const User &I) {
   SDValue N = getValue(I.getOperand(0));
   auto &TLI = DAG.getTargetLoweringInfo();
   EVT DestVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+  if (DestVT.isCheriCapability()) {
+    EVT AddrVT = TLI.getValueType(
+        DAG.getDataLayout(), DAG.getDataLayout().getAddressType(I.getType()));
+    N = DAG.getZExtOrTrunc(N, getCurSDLoc(), AddrVT);
+    N = DAG.getMemBasePlusOffset(DAG.getConstant(0, getCurSDLoc(), DestVT), N,
+                                 getCurSDLoc());
+    setValue(&I, N);
+    return;
+  }
   EVT PtrMemVT = TLI.getMemValueType(DAG.getDataLayout(), I.getType());
   N = DAG.getZExtOrTrunc(N, getCurSDLoc(), PtrMemVT);
   N = DAG.getPtrExtOrTrunc(N, getCurSDLoc(), DestVT);
@@ -8589,6 +8623,17 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     EVT MemVT =
         TLI.getMemValueType(DAG.getDataLayout(), I.getOperand(0)->getType());
     assert(PtrVT == Ptr.getValueType());
+    if (PtrVT.isCheriCapability()) {
+      EVT AddrVT = TLI.getValueType(
+          DAG.getDataLayout(),
+          DAG.getDataLayout().getAddressType(I.getOperand(0)->getType()));
+      assert(Mask.getValueType() == AddrVT);
+      SDValue Addr = DAG.getNode(ISD::PTRTOADDR, sdl, AddrVT, Ptr);
+      SDValue NewAddr = DAG.getNode(ISD::AND, sdl, AddrVT, Addr, Mask);
+      SDValue Diff = DAG.getNode(ISD::SUB, sdl, AddrVT, NewAddr, Addr);
+      setValue(&I, DAG.getMemBasePlusOffset(Ptr, Diff, sdl));
+      return;
+    }
     if (Mask.getValueType().getFixedSizeInBits() < MemVT.getFixedSizeInBits()) {
       // For AMDGPU buffer descriptors the mask is 48 bits, but the pointer is
       // 128-bit, so we have to pad the mask with ones for unused bits.
