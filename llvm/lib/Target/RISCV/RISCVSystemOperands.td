@@ -114,6 +114,13 @@ def SEED : SysReg<"seed", 0x015>;
 def : SysReg<"jvt", 0x017>;
 
 //===----------------------------------------------------------------------===//
+// Unprivileged CHERI (Y / Zyhybrid) Extension CSRs
+//===----------------------------------------------------------------------===//
+
+def : SysReg<"ddc", 0x03F>;
+def : SysReg<"utidc", 0x07F>;
+
+//===----------------------------------------------------------------------===//
 // Unprivileged Counter/Timers
 //===----------------------------------------------------------------------===//
 
@@ -172,6 +179,7 @@ def : SysReg<"stopsi", 0x148>;
 def : SysReg<"sspcs", 0x149>;
 def : SysReg<"siph", 0x154, RV32Only=true>;
 def : SysReg<"stopei", 0x15C>;
+def : SysReg<"stidc", 0x17F>;
 def : SysReg<"scountovf", 0xDA0>;
 def : SysReg<"stopi", 0xDB0>;
 
@@ -314,6 +322,7 @@ def : SysReg<"vstval", 0x243>;
 def : SysReg<"vsip", 0x244>;
 def : SysReg<"vsiph", 0x254, RV32Only=true>;
 def : SysReg<"vstopei", 0x25C>;
+def : SysReg<"vstidc", 0x27F>;
 def : SysReg<"vsatp", 0x280>;
 def : SysReg<"vstopi", 0xEB0>;
 
@@ -392,6 +401,7 @@ def : SysReg<"mtinst", 0x34A>;
 def : SysReg<"mtval2", 0x34B>;
 def : SysReg<"miph", 0x354, RV32Only=true>;
 def : SysReg<"mtopei", 0x35C>;
+def : SysReg<"mtidc", 0x37F>;
 def : SysReg<"mtopi", 0xFB0>;
 
 //===----------------------------------------------------------------------===//
@@ -526,6 +536,9 @@ def : SysReg<"dpc", 0x7B1>;
 def : SysReg<"dscratch0", 0x7B2>;
 def : AltSysRegName<"dscratch", 0x7B2>;
 def : SysReg<"dscratch1", 0x7B3>;
+def : SysReg<"drootcsel", 0x7BD>;
+def : SysReg<"drootc", 0x7BE>;
+def : SysReg<"dddc", 0x7BF>;
 
 //===-----------------------------------------------
 // Vendor CSRs
