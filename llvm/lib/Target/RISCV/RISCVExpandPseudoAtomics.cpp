@@ -47,6 +47,10 @@ class RISCVExpandPseudoAtomicsImpl final : public RISCVExpandPseudoImplBase {
                            int Width,
                            MachineBasicBlock::iterator &NextMBBI) const;
 
+  unsigned getLRForRMW8(AtomicOrdering Ordering) const;
+  unsigned getSCForRMW8(AtomicOrdering Ordering) const;
+  unsigned getLRForRMW16(AtomicOrdering Ordering) const;
+  unsigned getSCForRMW16(AtomicOrdering Ordering) const;
   unsigned getLRForRMW32(AtomicOrdering Ordering) const;
   unsigned getSCForRMW32(AtomicOrdering Ordering) const;
   unsigned getLRForRMW64(AtomicOrdering Ordering) const;
@@ -107,11 +111,22 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   // expanded instructions for each pseudo is correct in the Size field of the
   // tablegen definition for the pseudo.
   switch (MBBI->getOpcode()) {
+  case RISCV::PseudoAtomicSwap8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xchg, false, 8,
+                             NextMBBI);
+  case RISCV::PseudoAtomicSwap16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xchg, false, 16,
+                             NextMBBI);
   case RISCV::PseudoAtomicSwap32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xchg, false, 32,
                              NextMBBI);
   case RISCV::PseudoAtomicSwap64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xchg, false, 64,
+                             NextMBBI);
+  case RISCV::PseudoAtomicLoadAdd8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Add, false, 8, NextMBBI);
+  case RISCV::PseudoAtomicLoadAdd16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Add, false, 16,
                              NextMBBI);
   case RISCV::PseudoAtomicLoadAdd32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Add, false, 32,
@@ -119,11 +134,21 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   case RISCV::PseudoAtomicLoadAdd64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Add, false, 64,
                              NextMBBI);
+  case RISCV::PseudoAtomicLoadSub8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Sub, false, 8, NextMBBI);
+  case RISCV::PseudoAtomicLoadSub16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Sub, false, 16,
+                             NextMBBI);
   case RISCV::PseudoAtomicLoadSub32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Sub, false, 32,
                              NextMBBI);
   case RISCV::PseudoAtomicLoadSub64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Sub, false, 64,
+                             NextMBBI);
+  case RISCV::PseudoAtomicLoadAnd8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::And, false, 8, NextMBBI);
+  case RISCV::PseudoAtomicLoadAnd16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::And, false, 16,
                              NextMBBI);
   case RISCV::PseudoAtomicLoadAnd32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::And, false, 32,
@@ -131,15 +156,30 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   case RISCV::PseudoAtomicLoadAnd64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::And, false, 64,
                              NextMBBI);
+  case RISCV::PseudoAtomicLoadOr8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Or, false, 8, NextMBBI);
+  case RISCV::PseudoAtomicLoadOr16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Or, false, 16, NextMBBI);
   case RISCV::PseudoAtomicLoadOr32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Or, false, 32, NextMBBI);
   case RISCV::PseudoAtomicLoadOr64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Or, false, 64, NextMBBI);
+  case RISCV::PseudoAtomicLoadXor8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xor, false, 8, NextMBBI);
+  case RISCV::PseudoAtomicLoadXor16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xor, false, 16,
+                             NextMBBI);
   case RISCV::PseudoAtomicLoadXor32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xor, false, 32,
                              NextMBBI);
   case RISCV::PseudoAtomicLoadXor64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Xor, false, 64,
+                             NextMBBI);
+  case RISCV::PseudoAtomicLoadNand8:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Nand, false, 8,
+                             NextMBBI);
+  case RISCV::PseudoAtomicLoadNand16:
+    return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Nand, false, 16,
                              NextMBBI);
   case RISCV::PseudoAtomicLoadNand32:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Nand, false, 32,
@@ -147,11 +187,23 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   case RISCV::PseudoAtomicLoadNand64:
     return expandAtomicBinOp(MBB, MBBI, AtomicRMWInst::Nand, false, 64,
                              NextMBBI);
+  case RISCV::PseudoAtomicLoadMin8:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Min, false, 8,
+                                NextMBBI);
+  case RISCV::PseudoAtomicLoadMin16:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Min, false, 16,
+                                NextMBBI);
   case RISCV::PseudoAtomicLoadMin32:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Min, false, 32,
                                 NextMBBI);
   case RISCV::PseudoAtomicLoadMin64:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Min, false, 64,
+                                NextMBBI);
+  case RISCV::PseudoAtomicLoadMax8:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Max, false, 8,
+                                NextMBBI);
+  case RISCV::PseudoAtomicLoadMax16:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Max, false, 16,
                                 NextMBBI);
   case RISCV::PseudoAtomicLoadMax32:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Max, false, 32,
@@ -159,11 +211,23 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   case RISCV::PseudoAtomicLoadMax64:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Max, false, 64,
                                 NextMBBI);
+  case RISCV::PseudoAtomicLoadUMin8:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMin, false, 8,
+                                NextMBBI);
+  case RISCV::PseudoAtomicLoadUMin16:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMin, false, 16,
+                                NextMBBI);
   case RISCV::PseudoAtomicLoadUMin32:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMin, false, 32,
                                 NextMBBI);
   case RISCV::PseudoAtomicLoadUMin64:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMin, false, 64,
+                                NextMBBI);
+  case RISCV::PseudoAtomicLoadUMax8:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMax, false, 8,
+                                NextMBBI);
+  case RISCV::PseudoAtomicLoadUMax16:
+    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMax, false, 16,
                                 NextMBBI);
   case RISCV::PseudoAtomicLoadUMax32:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMax, false, 32,
@@ -193,6 +257,10 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   case RISCV::PseudoMaskedAtomicLoadUMin32:
     return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::UMin, true, 32,
                                 NextMBBI);
+  case RISCV::PseudoCmpXchg8:
+    return expandAtomicCmpXchg(MBB, MBBI, false, 8, NextMBBI);
+  case RISCV::PseudoCmpXchg16:
+    return expandAtomicCmpXchg(MBB, MBBI, false, 16, NextMBBI);
   case RISCV::PseudoCmpXchg32:
     return expandAtomicCmpXchg(MBB, MBBI, false, 32, NextMBBI);
   case RISCV::PseudoCmpXchg64:
@@ -202,6 +270,94 @@ bool RISCVExpandPseudoAtomicsImpl::expandMI(
   }
 
   return false;
+}
+
+unsigned
+RISCVExpandPseudoAtomicsImpl::getLRForRMW8(AtomicOrdering Ordering) const {
+  switch (Ordering) {
+  default:
+    llvm_unreachable("Unexpected AtomicOrdering");
+  case AtomicOrdering::Monotonic:
+    return RISCV::LR_B;
+  case AtomicOrdering::Acquire:
+    if (STI->hasStdExtZtso())
+      return RISCV::LR_B;
+    return RISCV::LR_B_AQ;
+  case AtomicOrdering::Release:
+    return RISCV::LR_B;
+  case AtomicOrdering::AcquireRelease:
+    if (STI->hasStdExtZtso())
+      return RISCV::LR_B;
+    return RISCV::LR_B_AQ;
+  case AtomicOrdering::SequentiallyConsistent:
+    return RISCV::LR_B_AQRL;
+  }
+}
+
+unsigned
+RISCVExpandPseudoAtomicsImpl::getSCForRMW8(AtomicOrdering Ordering) const {
+  switch (Ordering) {
+  default:
+    llvm_unreachable("Unexpected AtomicOrdering");
+  case AtomicOrdering::Monotonic:
+    return RISCV::SC_B;
+  case AtomicOrdering::Acquire:
+    return RISCV::SC_B;
+  case AtomicOrdering::Release:
+    if (STI->hasStdExtZtso())
+      return RISCV::SC_B;
+    return RISCV::SC_B_RL;
+  case AtomicOrdering::AcquireRelease:
+    if (STI->hasStdExtZtso())
+      return RISCV::SC_B;
+    return RISCV::SC_B_RL;
+  case AtomicOrdering::SequentiallyConsistent:
+    return RISCV::SC_B_RL;
+  }
+}
+
+unsigned
+RISCVExpandPseudoAtomicsImpl::getLRForRMW16(AtomicOrdering Ordering) const {
+  switch (Ordering) {
+  default:
+    llvm_unreachable("Unexpected AtomicOrdering");
+  case AtomicOrdering::Monotonic:
+    return RISCV::LR_H;
+  case AtomicOrdering::Acquire:
+    if (STI->hasStdExtZtso())
+      return RISCV::LR_H;
+    return RISCV::LR_H_AQ;
+  case AtomicOrdering::Release:
+    return RISCV::LR_H;
+  case AtomicOrdering::AcquireRelease:
+    if (STI->hasStdExtZtso())
+      return RISCV::LR_H;
+    return RISCV::LR_H_AQ;
+  case AtomicOrdering::SequentiallyConsistent:
+    return RISCV::LR_H_AQRL;
+  }
+}
+
+unsigned
+RISCVExpandPseudoAtomicsImpl::getSCForRMW16(AtomicOrdering Ordering) const {
+  switch (Ordering) {
+  default:
+    llvm_unreachable("Unexpected AtomicOrdering");
+  case AtomicOrdering::Monotonic:
+    return RISCV::SC_H;
+  case AtomicOrdering::Acquire:
+    return RISCV::SC_H;
+  case AtomicOrdering::Release:
+    if (STI->hasStdExtZtso())
+      return RISCV::SC_H;
+    return RISCV::SC_H_RL;
+  case AtomicOrdering::AcquireRelease:
+    if (STI->hasStdExtZtso())
+      return RISCV::SC_H;
+    return RISCV::SC_H_RL;
+  case AtomicOrdering::SequentiallyConsistent:
+    return RISCV::SC_H_RL;
+  }
 }
 
 unsigned
@@ -294,6 +450,10 @@ RISCVExpandPseudoAtomicsImpl::getSCForRMW64(AtomicOrdering Ordering) const {
 
 unsigned RISCVExpandPseudoAtomicsImpl::getLRForRMW(AtomicOrdering Ordering,
                                                    int Width) const {
+  if (Width == 8)
+    return getLRForRMW8(Ordering);
+  if (Width == 16)
+    return getLRForRMW16(Ordering);
   if (Width == 32)
     return getLRForRMW32(Ordering);
   if (Width == 64)
@@ -303,6 +463,10 @@ unsigned RISCVExpandPseudoAtomicsImpl::getLRForRMW(AtomicOrdering Ordering,
 
 unsigned RISCVExpandPseudoAtomicsImpl::getSCForRMW(AtomicOrdering Ordering,
                                                    int Width) const {
+  if (Width == 8)
+    return getSCForRMW8(Ordering);
+  if (Width == 16)
+    return getSCForRMW16(Ordering);
   if (Width == 32)
     return getSCForRMW32(Ordering);
   if (Width == 64)

@@ -226,3 +226,72 @@ defm LR_H : LR_r_aq_rl<0b001, "lr.h">, Sched<[WriteAtomicLDW, ReadAtomicLDW]>;
 defm SC_H : SC_r_aq_rl<0b001, "sc.h">,
             Sched<[WriteAtomicSTW, ReadAtomicSTW, ReadAtomicSTW]>;
 } // Predicates = [HasStdExtZabhlrsc], IsSignExtendingOpW = 1
+
+/// Pseudo AMOs
+
+let Predicates = [HasStdExtZabhlrsc, NoStdExtZabha] in {
+let Size = 16 in {
+def PseudoAtomicSwap8 : PseudoAMO;
+def PseudoAtomicLoadAdd8 : PseudoAMO;
+def PseudoAtomicLoadSub8 : PseudoAMO;
+def PseudoAtomicLoadAnd8 : PseudoAMO;
+def PseudoAtomicLoadOr8 : PseudoAMO;
+def PseudoAtomicLoadXor8 : PseudoAMO;
+def PseudoAtomicSwap16 : PseudoAMO;
+def PseudoAtomicLoadAdd16 : PseudoAMO;
+def PseudoAtomicLoadSub16 : PseudoAMO;
+def PseudoAtomicLoadAnd16 : PseudoAMO;
+def PseudoAtomicLoadOr16 : PseudoAMO;
+def PseudoAtomicLoadXor16 : PseudoAMO;
+} // Size = 16
+let Size = 24 in {
+def PseudoAtomicLoadMax8 : PseudoAMO;
+def PseudoAtomicLoadMin8 : PseudoAMO;
+def PseudoAtomicLoadUMax8 : PseudoAMO;
+def PseudoAtomicLoadUMin8 : PseudoAMO;
+def PseudoAtomicLoadMax16 : PseudoAMO;
+def PseudoAtomicLoadMin16 : PseudoAMO;
+def PseudoAtomicLoadUMax16 : PseudoAMO;
+def PseudoAtomicLoadUMin16 : PseudoAMO;
+} // Size = 24
+
+defm : PseudoAMOPat<"atomic_swap_i8", PseudoAtomicSwap8>;
+defm : PseudoAMOPat<"atomic_load_add_i8", PseudoAtomicLoadAdd8>;
+defm : PseudoAMOPat<"atomic_load_sub_i8", PseudoAtomicLoadSub8>;
+defm : PseudoAMOPat<"atomic_load_and_i8", PseudoAtomicLoadAnd8>;
+defm : PseudoAMOPat<"atomic_load_or_i8", PseudoAtomicLoadOr8>;
+defm : PseudoAMOPat<"atomic_load_xor_i8", PseudoAtomicLoadXor8>;
+defm : PseudoAMOPat<"atomic_load_max_i8", PseudoAtomicLoadMax8>;
+defm : PseudoAMOPat<"atomic_load_min_i8", PseudoAtomicLoadMin8>;
+defm : PseudoAMOPat<"atomic_load_umax_i8", PseudoAtomicLoadUMax8>;
+defm : PseudoAMOPat<"atomic_load_umin_i8", PseudoAtomicLoadUMin8>;
+
+defm : PseudoAMOPat<"atomic_swap_i16", PseudoAtomicSwap16>;
+defm : PseudoAMOPat<"atomic_load_add_i16", PseudoAtomicLoadAdd16>;
+defm : PseudoAMOPat<"atomic_load_sub_i16", PseudoAtomicLoadSub16>;
+defm : PseudoAMOPat<"atomic_load_and_i16", PseudoAtomicLoadAnd16>;
+defm : PseudoAMOPat<"atomic_load_or_i16", PseudoAtomicLoadOr16>;
+defm : PseudoAMOPat<"atomic_load_xor_i16", PseudoAtomicLoadXor16>;
+defm : PseudoAMOPat<"atomic_load_max_i16", PseudoAtomicLoadMax16>;
+defm : PseudoAMOPat<"atomic_load_min_i16", PseudoAtomicLoadMin16>;
+defm : PseudoAMOPat<"atomic_load_umax_i16", PseudoAtomicLoadUMax16>;
+defm : PseudoAMOPat<"atomic_load_umin_i16", PseudoAtomicLoadUMin16>;
+} // Predicates = [HasStdExtZabhlrsc, NoStdExtZabha]
+
+let Predicates = [HasStdExtZabhlrsc] in {
+let Size = 20 in {
+def PseudoAtomicLoadNand8 : PseudoAMO;
+def PseudoAtomicLoadNand16 : PseudoAMO;
+} // Size = 20
+defm : PseudoAMOPat<"atomic_load_nand_i8", PseudoAtomicLoadNand8>;
+defm : PseudoAMOPat<"atomic_load_nand_i16", PseudoAtomicLoadNand16>;
+} // Predicates = [HasStdExtZabhlrsc]
+
+/// Compare and exchange
+
+let Predicates = [HasStdExtZabhlrsc, NoStdExtZabhaOrZacas] in {
+def PseudoCmpXchg8 : PseudoCmpXchg;
+def PseudoCmpXchg16 : PseudoCmpXchg;
+defm : PseudoCmpXchgPat<"atomic_cmp_swap_i8", PseudoCmpXchg8>;
+defm : PseudoCmpXchgPat<"atomic_cmp_swap_i16", PseudoCmpXchg16>;
+} // Predicates = [HasStdExtZabhlrsc, NoStdExtZabhaOrZacas]

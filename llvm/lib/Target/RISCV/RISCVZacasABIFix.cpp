@@ -63,10 +63,13 @@ public:
 // SequentiallyConsistent failure ordering.
 bool RISCVZacasABIFixImpl::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
   assert(ST->hasStdExtZacas() && "only necessary to run in presence of zacas");
-  IRBuilder<> Builder(&I);
+  unsigned Size = I.getCompareOperand()->getType()->getPrimitiveSizeInBits();
+  if (Size < 32 && !ST->hasStdExtZabha())
+    return false;
   if (I.getFailureOrdering() != AtomicOrdering::SequentiallyConsistent)
     return false;
 
+  IRBuilder<> Builder(&I);
   Builder.CreateFence(AtomicOrdering::SequentiallyConsistent);
   return true;
 }

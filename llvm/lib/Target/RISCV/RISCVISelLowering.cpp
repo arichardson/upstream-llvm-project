@@ -983,7 +983,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 
   if (Subtarget.hasStdExtZalrsc()) {
     setMaxAtomicSizeInBitsSupported(Subtarget.getXLen());
-    if (Subtarget.hasStdExtZabha() && Subtarget.hasStdExtZacas())
+    if ((Subtarget.hasStdExtZabha() && Subtarget.hasStdExtZacas()) ||
+        Subtarget.hasStdExtZabhlrsc())
       setMinCmpXchgSizeInBits(8);
     else
       setMinCmpXchgSizeInBits(32);
@@ -29445,11 +29446,13 @@ RISCVTargetLowering::shouldExpandAtomicRMWInIR(const AtomicRMWInst *AI) const {
     if (Subtarget.hasStdExtZacas() &&
         (Size >= 32 || Subtarget.hasStdExtZabha()))
       return AtomicExpansionKind::CmpXChg;
-    if (Size < 32)
+    if (Size < 32 && !Subtarget.hasStdExtZabhlrsc())
       return AtomicExpansionKind::MaskedIntrinsic;
+    return AtomicExpansionKind::None;
   }
 
-  if (Size < 32 && !Subtarget.hasStdExtZabha())
+  if (Size < 32 && !Subtarget.hasStdExtZabha() &&
+      !Subtarget.hasStdExtZabhlrsc())
     return AtomicExpansionKind::MaskedIntrinsic;
 
   return AtomicExpansionKind::None;
@@ -29547,7 +29550,7 @@ RISCVTargetLowering::shouldExpandAtomicCmpXchgInIR(
 
   unsigned Size = CI->getCompareOperand()->getType()->getPrimitiveSizeInBits();
   if (!(Subtarget.hasStdExtZabha() && Subtarget.hasStdExtZacas()) &&
-      (Size == 8 || Size == 16))
+      !Subtarget.hasStdExtZabhlrsc() && (Size == 8 || Size == 16))
     return AtomicExpansionKind::MaskedIntrinsic;
   return AtomicExpansionKind::None;
 }
@@ -29744,16 +29747,21 @@ bool RISCVTargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
 }
 
 ISD::NodeType RISCVTargetLowering::getExtendForAtomicCmpSwapArg() const {
-  // Zacas will use amocas.w which does not require extension.
-  return Subtarget.hasStdExtZacas() ? ISD::ANY_EXTEND : ISD::SIGN_EXTEND;
+  // Zacas will use amocas.[b|h|w] which does not require extension.
+  if (Subtarget.hasStdExtZacas() &&
+      (!Subtarget.hasStdExtZabhlrsc() || Subtarget.hasStdExtZabha()))
+    return ISD::ANY_EXTEND;
+  return ISD::SIGN_EXTEND;
 }
 
 ISD::NodeType RISCVTargetLowering::getExtendForAtomicRMWArg(unsigned Op) const {
-  // Zaamo will use amo<op>.w which does not require extension.
-  if (Subtarget.hasStdExtZaamo() || Subtarget.hasForcedAtomics())
+  // Zaamo/Zabha will use amo<op>.[b|h|w] which does not require extension.
+  if ((Subtarget.hasStdExtZaamo() &&
+       (!Subtarget.hasStdExtZabhlrsc() || Subtarget.hasStdExtZabha())) ||
+      Subtarget.hasForcedAtomics())
     return ISD::ANY_EXTEND;
 
-  // Zalrsc pseudo expansions with comparison require sign-extension.
+  // Zalrsc/Zabhlrsc pseudo expansions with comparison require sign-extension.
   assert(Subtarget.hasStdExtZalrsc());
   switch (Op) {
   case ISD::ATOMIC_LOAD_MIN:

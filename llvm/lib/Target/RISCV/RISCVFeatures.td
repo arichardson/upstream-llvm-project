@@ -276,6 +276,9 @@ def FeatureStdExtZabha
 def HasStdExtZabha : Predicate<"Subtarget->hasStdExtZabha()">,
                      AssemblerPredicate<(all_of FeatureStdExtZabha),
                          "'Zabha' (Byte and Halfword Atomic Memory Operations)">;
+def NoStdExtZabha : Predicate<"!Subtarget->hasStdExtZabha()">;
+def NoStdExtZabhaOrZacas
+    : Predicate<"!(Subtarget->hasStdExtZabha() && Subtarget->hasStdExtZacas())">;
 
 def FeatureStdExtZabhlrsc
     : RISCVExperimentalExtension<
