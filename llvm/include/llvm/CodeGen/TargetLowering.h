@@ -431,6 +431,12 @@ public:
     return getPointerTy(DL, DL.getProgramAddressSpace());
   }
 
+  /// Return the type for globals pointers, which is determined by the globals
+  /// address space specified through the data layout.
+  MVT getGlobalsPointerTy(const DataLayout &DL) const {
+    return getPointerTy(DL, DL.getDefaultGlobalsAddressSpace());
+  }
+
   /// Return the type for operands of fence.
   /// TODO: Let fence operands be of i32 type and remove this.
   virtual MVT getFenceOperandTy(const DataLayout &DL) const {
@@ -4271,6 +4277,10 @@ public:
   virtual unsigned getJumpTableEncoding() const;
 
   virtual MVT getJumpTableRegTy(const DataLayout &DL) const {
+    MVT PtrVT = getProgramPointerTy(DL);
+    if (PtrVT.isCheriCapability())
+      return MVT::getIntegerVT(
+          DL.getIndexSizeInBits(DL.getProgramAddressSpace()));
     return getPointerTy(DL);
   }
 

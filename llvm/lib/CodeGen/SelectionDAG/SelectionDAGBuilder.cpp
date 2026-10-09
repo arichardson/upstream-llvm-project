@@ -3080,9 +3080,13 @@ void SelectionDAGBuilder::visitJumpTable(SwitchCG::JumpTable &JT) {
   // Emit the code for the jump table
   assert(JT.SL && "Should set SDLoc for SelectionDAG!");
   assert(JT.Reg && "Should lower JT Header first!");
-  EVT PTy = DAG.getTargetLoweringInfo().getJumpTableRegTy(DAG.getDataLayout());
-  SDValue Index = DAG.getCopyFromReg(getControlRoot(), *JT.SL, JT.Reg, PTy);
-  SDValue Table = DAG.getJumpTable(JT.JTI, PTy);
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  const DataLayout &DL = DAG.getDataLayout();
+  EVT RegTy = TLI.getJumpTableRegTy(DL);
+  SDValue Index = DAG.getCopyFromReg(getControlRoot(), *JT.SL, JT.Reg, RegTy);
+  EVT PTy = TLI.getGlobalsPointerTy(DL);
+  SDValue Table =
+      DAG.getJumpTable(JT.JTI, PTy.isCheriCapability() ? PTy : RegTy);
   SDValue BrJumpTable = DAG.getNode(ISD::BR_JT, *JT.SL, MVT::Other,
                                     Index.getValue(1), Table, Index);
   DAG.setRoot(BrJumpTable);
