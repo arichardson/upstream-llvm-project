@@ -121,6 +121,8 @@ def YBNDSWI : RVY_bndswi<"ybndswi">;
 def : InstAlias<"ybndsw $rd, $rs1, $imm",
                 (YBNDSWI YGPR:$rd, YGPR:$rs1, ybndsw_imm:$imm), 0>;
 def YBNDSRW : RVY_rr<0b0100011, "ybndsrw", YGPR, YGPR, GPR>;
+let Predicates = [HasStdExtYOrZyhybrid, HasStdExtZybndsrdw] in
+def YBNDSRDW : RVY_rr<0b0110011, "ybndsrdw", YGPR, YGPR, GPR>;
 def YUNSEALS : RVY_rr<0b0000111, "yunseals", YGPR, YGPR, YGPR>;
 def YSEALE : RVY_rr_fixed_rs1<0b0010111, 0b00000, "yseale", YGPR, YGPR>;
 def YBLD : RVY_rr<0b0001111, "ybld", YGPR, YGPR, YGPR>;

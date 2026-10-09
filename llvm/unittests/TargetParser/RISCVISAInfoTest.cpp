@@ -913,6 +913,19 @@ TEST(ParseArchString, MissingDepency) {
             "'xsfvfbfexp16e' requires 'zvfbfmin' or 'zvfbfa' extension to also "
             "be specified");
 
+  for (StringRef Input : {"rv32i_zybndsrdw0p910", "rv64i_zybndsrdw0p910"}) {
+    EXPECT_EQ(toString(RISCVISAInfo::parseArchString(Input, true).takeError()),
+              "'zybndsrdw' requires 'y' or 'zyhybrid' extension to also be "
+              "specified");
+  }
+  for (StringRef Input :
+       {"rv32y0p910_zybndsrdw0p910", "rv64y0p910_zybndsrdw0p910",
+        "rv32i_zybndsrdw0p910_zyhybrid0p910",
+        "rv64i_zybndsrdw0p910_zyhybrid0p910"}) {
+    ASSERT_THAT_EXPECTED(RISCVISAInfo::parseArchString(Input, true),
+                         Succeeded());
+  }
+
   for (StringRef Input : {"rv32i_zylg0p910", "rv64i_zylg0p910"}) {
     EXPECT_EQ(toString(RISCVISAInfo::parseArchString(Input, true).takeError()),
               "'zylg' requires 'y' or 'zyhybrid' extension to also be "
@@ -1730,6 +1743,7 @@ Experimental extensions
     zibi                 0.1
     zicfilp              1.0       This is a long dummy description
     zilx                 0.1
+    zybndsrdw            0.910
     zyhybrid             0.910
     zylg                 0.910
     zabhlrsc             1.0
