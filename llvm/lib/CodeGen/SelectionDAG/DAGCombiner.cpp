@@ -13780,31 +13780,54 @@ bool refineUniformBase(SDValue &BasePtr, SDValue &Index, bool IndexIsScaled,
   if (IndexIsScaled)
     return false;
 
-  if (!isNullConstant(BasePtr) && !Index.hasOneUse())
+  if (!isNullConstant(BasePtr) && !Index.hasOneUse() &&
+      !Index.getValueType().isCheriCapability())
     return false;
 
   EVT VT = BasePtr.getValueType();
+  auto AddToBase = [&](SDValue SplatVal) -> bool {
+    if (!SplatVal)
+      return false;
+    EVT SplatVT = SplatVal.getValueType();
+    if (VT.isCheriCapability()) {
+      if (!SplatVT.isInteger() ||
+          SplatVT.getSizeInBits() != VT.getSizeInBits() / 2)
+        return false;
+      BasePtr = DAG.getMemBasePlusOffset(BasePtr, SplatVal, DL);
+      return true;
+    }
+    if (SplatVT.isCheriCapability()) {
+      if (!VT.isInteger() || VT.getSizeInBits() != SplatVT.getSizeInBits() / 2)
+        return false;
+      BasePtr = isNullConstant(BasePtr)
+                    ? SplatVal
+                    : DAG.getMemBasePlusOffset(SplatVal, BasePtr, DL);
+      return true;
+    }
+    if (SplatVT == VT) {
+      BasePtr = DAG.getNode(ISD::ADD, DL, VT, BasePtr, SplatVal);
+      return true;
+    }
+    return false;
+  };
 
   if (SDValue SplatVal = DAG.getSplatValue(Index);
-      SplatVal && !isNullConstant(SplatVal) &&
-      SplatVal.getValueType() == VT) {
-    BasePtr = DAG.getNode(ISD::ADD, DL, VT, BasePtr, SplatVal);
-    Index = DAG.getSplat(Index.getValueType(), DL, DAG.getConstant(0, DL, VT));
+      SplatVal && !isNullConstant(SplatVal) && AddToBase(SplatVal)) {
+    EVT ZeroVT = VT.isCheriCapability() ? SplatVal.getValueType() : VT;
+    EVT ZeroVecVT =
+        Index.getValueType().changeVectorElementType(*DAG.getContext(), ZeroVT);
+    Index = DAG.getSplat(ZeroVecVT, DL, DAG.getConstant(0, DL, ZeroVT));
     return true;
   }
 
-  if (Index.getOpcode() != ISD::ADD)
+  if (Index.getOpcode() != ISD::ADD && Index.getOpcode() != ISD::PTRADD)
     return false;
 
-  if (SDValue SplatVal = DAG.getSplatValue(Index.getOperand(0));
-      SplatVal && SplatVal.getValueType() == VT) {
-    BasePtr = DAG.getNode(ISD::ADD, DL, VT, BasePtr, SplatVal);
+  if (AddToBase(DAG.getSplatValue(Index.getOperand(0)))) {
     Index = Index.getOperand(1);
     return true;
   }
-  if (SDValue SplatVal = DAG.getSplatValue(Index.getOperand(1));
-      SplatVal && SplatVal.getValueType() == VT) {
-    BasePtr = DAG.getNode(ISD::ADD, DL, VT, BasePtr, SplatVal);
+  if (AddToBase(DAG.getSplatValue(Index.getOperand(1)))) {
     Index = Index.getOperand(0);
     return true;
   }
