@@ -325,9 +325,10 @@ void RISCVInstPrinter::printStackAdj(const MCInst *MI, unsigned OpNo,
                                      bool Negate) {
   int64_t Imm = MI->getOperand(OpNo).getImm();
   bool IsRV64 = STI.hasFeature(RISCV::Feature64Bit);
+  bool IsRVYCapMode = STI.hasFeature(RISCV::FeatureStdExtY);
   int64_t StackAdj = 0;
   auto RlistVal = MI->getOperand(0).getImm();
-  auto Base = RISCVZC::getStackAdjBase(RlistVal, IsRV64);
+  auto Base = RISCVZC::getStackAdjBase(RlistVal, IsRV64, IsRVYCapMode);
   StackAdj = Imm + Base;
   assert((StackAdj >= Base && StackAdj <= Base + 48) &&
          "Incorrect stack adjust");
