@@ -18,7 +18,7 @@
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 class LAQ_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
     : RVInstRAtomic<0b00110, aq, rl, funct3, OPC_AMO,
-                    (outs GPR:$rd), (ins GPRMemZeroOffset:$rs1),
+                    (outs GPR:$rd), (ins BasePtrZeroOffset:$rs1),
                     opcodestr, "$rd, $rs1"> {
   let rs2 = 0;
 }
@@ -26,7 +26,7 @@ class LAQ_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 class SRL_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
     : RVInstRAtomic<0b00111, aq, rl, funct3, OPC_AMO,
-                    (outs), (ins GPR:$rs2, GPRMemZeroOffset:$rs1),
+                    (outs), (ins GPR:$rs2, BasePtrZeroOffset:$rs1),
                     opcodestr, "$rs2, $rs1"> {
   let rd = 0;
 }
