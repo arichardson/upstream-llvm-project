@@ -772,9 +772,10 @@ class Load_ri<bits<3> funct3, string opcodestr, DAGOperand rty = GPR,
               (ins BasePtr:$rs1, simm12_lo_optional:$imm12),
               opcodestr, "$rd, ${imm12}(${rs1})">;
 
-class HLoad_r<bits<7> funct7, bits<5> funct5, string opcodestr>
-    : RVInstR<funct7, 0b100, OPC_SYSTEM, (outs GPR:$rd),
-              (ins GPRMemZeroOffset:$rs1), opcodestr, "$rd, $rs1"> {
+class HLoad_r<bits<7> funct7, bits<5> funct5, string opcodestr,
+              DAGOperand rty = GPR>
+    : RVInstR<funct7, 0b100, OPC_SYSTEM, (outs rty:$rd),
+              (ins BasePtrZeroOffset:$rs1), opcodestr, "$rd, $rs1"> {
   let rs2 = funct5;
 }
 }
@@ -789,9 +790,9 @@ class Store_rri<bits<3> funct3, string opcodestr, DAGOperand rty = GPR,
               (ins rty:$rs2, BasePtr:$rs1, simm12_lo_optional:$imm12),
               opcodestr, "$rs2, ${imm12}(${rs1})">;
 
-class HStore_rr<bits<7> funct7, string opcodestr>
+class HStore_rr<bits<7> funct7, string opcodestr, DAGOperand rty = GPR>
     : RVInstR<funct7, 0b100, OPC_SYSTEM, (outs),
-              (ins GPR:$rs2, GPRMemZeroOffset:$rs1),
+              (ins rty:$rs2, BasePtrZeroOffset:$rs1),
                opcodestr, "$rs2, $rs1"> {
   let rd = 0;
 }

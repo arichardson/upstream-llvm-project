@@ -226,6 +226,14 @@ defm AMOSWAP_Y : AMO_rr_aq_rl<0b00001, 0b011, "amoswap.y", YGPR, YGPR, OPC_RVY_A
 } // Predicates = [HasRVYInstructions, HasStdExtZaamo]
 
 //
+// Hypervisor Capability Load and Store Instructions
+//
+let Predicates = [HasRVYInstructions, HasStdExtH] in {
+def HLV_Y : HLoad_r<0b0111000, 0b00000, "hlv.y", YGPR>, Sched<[]>;
+def HSV_Y : HStore_rr<0b0111001, "hsv.y", YGPR>, Sched<[]>;
+} // Predicates = [HasRVYInstructions, HasStdExtH]
+
+//
 // Zba Capability Address Generation Instructions
 //
 let Predicates = [HasRVYInstructions, HasStdExtZba] in {
