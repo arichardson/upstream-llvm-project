@@ -195,6 +195,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     addRegisterClass(CheriCapType, &RISCV::YGPRRegClass);
     setOperationAction(ISD::SELECT, CheriCapType, Custom);
     setOperationAction(ISD::SELECT_CC, CheriCapType, Expand);
+    setOperationAction({ISD::GlobalAddress, ISD::BlockAddress,
+                        ISD::ConstantPool, ISD::JumpTable},
+                       CheriCapType, Custom);
   }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {
@@ -10209,13 +10212,17 @@ template <class NodeTy>
 SDValue RISCVTargetLowering::getAddr(NodeTy *N, SelectionDAG &DAG,
                                      bool IsLocal, bool IsExternWeak) const {
   SDLoc DL(N);
-  EVT Ty = getPointerTy(DAG.getDataLayout());
+  EVT Ty = N->getValueType(0);
 
   // When HWASAN is used and tagging of global variables is enabled
   // they should be accessed via the GOT, since the tagged address of a global
   // is incompatible with existing code models. This also applies to non-pic
-  // mode.
-  if (isPositionIndependent() || Subtarget.allowTaggedGlobals()) {
+  // mode. In RVY capability mode, globals are also accessed via the GOT to
+  // obtain tight capability bounds and permissions, while local symbols (such
+  // as constant pools, jump tables, and block addresses) use PC-relative
+  // addressing.
+  if (isPositionIndependent() || Subtarget.allowTaggedGlobals() ||
+      Subtarget.isRVYCapMode()) {
     SDValue Addr = getTargetNode(N, DL, Ty, DAG, 0);
     if (IsLocal && !Subtarget.allowTaggedGlobals())
       // Use PC-relative addressing to access the symbol. This generates the
@@ -10297,7 +10304,8 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
   GlobalAddressSDNode *N = cast<GlobalAddressSDNode>(Op);
   assert(N->getOffset() == 0 && "unexpected offset in global node");
   const GlobalValue *GV = N->getGlobal();
-  bool IsLocal = getTargetMachine().shouldAssumeDSOLocal(GV);
+  bool IsLocal = !Subtarget.isRVYCapMode() &&
+                 getTargetMachine().shouldAssumeDSOLocal(GV);
   return getAddr(N, DAG, IsLocal, GV->hasExternalWeakLinkage());
 }
 
@@ -29601,7 +29609,15 @@ bool RISCVTargetLowering::shouldConvertFpToSat(unsigned Op, EVT FPVT,
   }
 }
 
+bool RISCVTargetLowering::isJumpTableRelative() const {
+  if (Subtarget.isRVYCapMode())
+    return true;
+  return TargetLowering::isJumpTableRelative();
+}
+
 unsigned RISCVTargetLowering::getJumpTableEncoding() const {
+  if (Subtarget.isRVYCapMode())
+    return MachineJumpTableInfo::EK_LabelDifference32;
   // If we are using the small code model, we can reduce size of jump table
   // entry to 4 bytes.
   if (Subtarget.is64Bit() && !isPositionIndependent() &&

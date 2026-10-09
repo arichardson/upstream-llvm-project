@@ -158,7 +158,8 @@ def riscv_add_lo : RVSDNode<"ADD_LO", SDTIntBinOp>;
 def riscv_hi : RVSDNode<"HI", SDTIntUnaryOp>;
 
 // Represents an AUIPC+ADDI pair. Selected to PseudoLLA.
-def riscv_lla : RVSDNode<"LLA", SDTIntUnaryOp>;
+def riscv_lla : RVSDNode<"LLA", SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>,
+                                                     SDTCisVT<0, PtrVT>]>>;
 
 // Selected as PseudoAddTPRel. Used to emit a TP-relative relocation.
 def riscv_add_tprel : RVSDNode<"ADD_TPREL",
@@ -1866,7 +1867,7 @@ def PseudoLongBGEU : LongBccPseudo;
 
 let isBarrier = 1, isBranch = 1, isTerminator = 1 in
 def PseudoBR : Pseudo<(outs), (ins simm21_lsb0_jal:$imm20), [(br bb:$imm20)]>,
-               PseudoInstExpansion<(JAL X0, simm21_lsb0_jal:$imm20)>;
+               PseudoInstExpansion<(JAL NullReg, simm21_lsb0_jal:$imm20)>;
 
 let isBarrier = 1, isBranch = 1, isIndirectBranch = 1, isTerminator = 1 in {
 // Use GPRJALRNonX7 to avoid X7 which is reserved for landing pad labels

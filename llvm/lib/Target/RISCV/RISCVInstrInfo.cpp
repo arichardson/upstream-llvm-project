@@ -1871,6 +1871,9 @@ static int getJumpTableIndexFromLoadAddr(const MachineRegisterInfo &MRI,
   case RISCV::SH1ADD:
   case RISCV::SH2ADD:
   case RISCV::SH3ADD:
+  case RISCV::YSH1ADD:
+  case RISCV::YSH2ADD:
+  case RISCV::YSH3ADD:
     // Only the index should be scaled so we just check the unscaled operand for
     // the base address.
     // TODO: Can the address be SHXADD_UW?
@@ -1879,6 +1882,7 @@ static int getJumpTableIndexFromLoadAddr(const MachineRegisterInfo &MRI,
       return JTI;
     break;
   case RISCV::ADD:
+  case RISCV::YADD:
     JTI = getJumpTableIndexFromBase(MRI, MI->getOperand(1).getReg());
     if (JTI >= 0)
       return JTI;
@@ -1942,6 +1946,7 @@ int RISCVInstrInfo::getJumpTableIndex(const MachineInstr &MI) const {
       return JTI;
     break;
   case RISCV::ADD:
+  case RISCV::YADD:
     JTI = getJumpTableIndexFromBase(MRI, Def->getOperand(1).getReg());
     if (JTI >= 0)
       return JTI;

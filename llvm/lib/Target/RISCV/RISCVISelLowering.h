@@ -420,6 +420,8 @@ public:
 
   bool shouldConvertFpToSat(unsigned Op, EVT FPVT, EVT VT) const override;
 
+  bool isJumpTableRelative() const override;
+
   unsigned getJumpTableEncoding() const override;
 
   const MCExpr *LowerCustomJumpTableEntry(const MachineJumpTableInfo *MJTI,

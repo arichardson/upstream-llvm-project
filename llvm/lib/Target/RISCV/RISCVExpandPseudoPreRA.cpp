@@ -103,8 +103,9 @@ bool RISCVExpandPseudoPreRAImpl::expandAuipcInstPair(
   DebugLoc DL = MI.getDebugLoc();
 
   Register DestReg = MI.getOperand(0).getReg();
-  Register ScratchReg =
-      MF->getRegInfo().createVirtualRegister(&RISCV::GPRRegClass);
+  const TargetRegisterClass *RC =
+      STI->isRVYCapMode() ? &RISCV::YGPRNoX0RegClass : &RISCV::GPRRegClass;
+  Register ScratchReg = MF->getRegInfo().createVirtualRegister(RC);
 
   MachineOperand &Symbol = MI.getOperand(1);
   Symbol.setTargetFlags(FlagsHi);
@@ -128,12 +129,15 @@ bool RISCVExpandPseudoPreRAImpl::expandAuipcInstPair(
 
 bool RISCVExpandPseudoPreRAImpl::expandLoadLocalAddress(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI) const {
-  return expandAuipcInstPair(MBB, MBBI, RISCVII::MO_PCREL_HI, RISCV::ADDI);
+  unsigned SecondOpcode = STI->isRVYCapMode() ? RISCV::YADDI : RISCV::ADDI;
+  return expandAuipcInstPair(MBB, MBBI, RISCVII::MO_PCREL_HI, SecondOpcode);
 }
 
 bool RISCVExpandPseudoPreRAImpl::expandLoadGlobalAddress(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI) const {
-  unsigned SecondOpcode = STI->is64Bit() ? RISCV::LD : RISCV::LW;
+  unsigned SecondOpcode = STI->isRVYCapMode() ? RISCV::LY
+                          : STI->is64Bit()    ? RISCV::LD
+                                              : RISCV::LW;
   return expandAuipcInstPair(MBB, MBBI, RISCVII::MO_GOT_HI, SecondOpcode);
 }
 
