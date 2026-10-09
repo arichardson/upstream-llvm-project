@@ -2,24 +2,24 @@
 /// since this is an always-trapping encoding that may be reused in the future:
 /// - Check that the assembler rejects zero reg base for capmode but allows it in integral pointer mode.
 /// - Check that the disassembler with +experimental-y decodes zero reg base as invalid instructions.
-// RUN: llvm-mc --triple=riscv32 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc --show-encoding < %s \
+// RUN: llvm-mc --triple=riscv32 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc,+h --show-encoding < %s \
 // RUN:   | FileCheck --check-prefixes=CHECK-ASM,CHECK %s
-// RUN: not llvm-mc --triple=riscv32 --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc < %s 2>&1 \
+// RUN: not llvm-mc --triple=riscv32 --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc,+h < %s 2>&1 \
 // RUN:   |  FileCheck %s --check-prefixes=ERR-RVY --implicit-check-not=error:
-// RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc -o %t.rv32i.o < %s
-// RUN: llvm-objdump -M no-aliases --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc -d --no-print-imm-hex %t.rv32i.o \
+// RUN: llvm-mc --filetype=obj --triple=riscv32 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc,+h -o %t.rv32i.o < %s
+// RUN: llvm-objdump -M no-aliases --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc,+h -d --no-print-imm-hex %t.rv32i.o \
 // RUN:   | FileCheck --check-prefixes=CHECK %s
-// RUN: llvm-objdump -M no-aliases --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc -d --no-print-imm-hex %t.rv32i.o \
+// RUN: llvm-objdump -M no-aliases --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc,+h -d --no-print-imm-hex %t.rv32i.o \
 // RUN:   | FileCheck --check-prefixes=CHECK-CAP-MODE-DISASM %s
 
-// RUN: llvm-mc --triple=riscv64 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc --show-encoding --defsym=RV64=1 < %s \
+// RUN: llvm-mc --triple=riscv64 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc,+h --show-encoding --defsym=RV64=1 < %s \
 // RUN:   | FileCheck --check-prefixes=CHECK-ASM,CHECK-ASM-64,CHECK,CHECK-64 %s
-// RUN: not llvm-mc --triple=riscv64 --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc --defsym=RV64=1 < %s 2>&1 \
+// RUN: not llvm-mc --triple=riscv64 --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc,+h --defsym=RV64=1 < %s 2>&1 \
 // RUN:   | FileCheck --check-prefixes=ERR-RVY,ERR-RVY-64 --implicit-check-not=error: %s
-// RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc --defsym=RV64=1 -o %t.rv64i.o < %s
-// RUN: llvm-objdump -M no-aliases --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc -d --no-print-imm-hex %t.rv64i.o \
+// RUN: llvm-mc --filetype=obj --triple=riscv64 --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc,+h --defsym=RV64=1 -o %t.rv64i.o < %s
+// RUN: llvm-objdump -M no-aliases --mattr=+experimental-zyhybrid,+a,+zabha,+experimental-zabhlrsc,+h -d --no-print-imm-hex %t.rv64i.o \
 // RUN:   | FileCheck --check-prefixes=CHECK,CHECK-64 %s
-// RUN: llvm-objdump -M no-aliases --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc -d --no-print-imm-hex %t.rv64i.o \
+// RUN: llvm-objdump -M no-aliases --mattr=+experimental-y,+a,+zabha,+experimental-zabhlrsc,+h -d --no-print-imm-hex %t.rv64i.o \
 // RUN:   | FileCheck --check-prefixes=CHECK-CAP-MODE-DISASM,CHECK-CAP-MODE-DISASM-64 %s
 
 // CHECK: lb	a0, 16(zero)
@@ -149,6 +149,26 @@ lr.h a0, (zero)
 // CHECK-CAP-MODE-DISASM-NEXT: 18b0152f <unknown>
 // ERR-RVY: :[[#@LINE+1]]:15: error: operand must be a GPR with optional zero immediate
 sc.h a0, a1, (zero)
+// CHECK-NEXT: hlv.b	a0, (zero)
+// CHECK-ASM-SAME: # encoding: [0x73,0x45,0x00,0x60]
+// CHECK-CAP-MODE-DISASM-NEXT: 60004573 <unknown>
+// ERR-RVY: :[[#@LINE+1]]:12: error: operand must be a GPR with optional zero immediate
+hlv.b a0, (zero)
+// CHECK-NEXT: hsv.b	a0, (zero)
+// CHECK-ASM-SAME: # encoding: [0x73,0x40,0xa0,0x62]
+// CHECK-CAP-MODE-DISASM-NEXT: 62a04073 <unknown>
+// ERR-RVY: :[[#@LINE+1]]:12: error: operand must be a GPR with optional zero immediate
+hsv.b a0, (zero)
+// CHECK-NEXT: hlv.y	a0, (zero)
+// CHECK-ASM-SAME: # encoding: [0x73,0x45,0x00,0x70]
+// CHECK-CAP-MODE-DISASM-NEXT: 70004573 <unknown>
+// ERR-RVY: :[[#@LINE+1]]:12: error: operand must be a GPR with optional zero immediate
+hlv.y a0, (zero)
+// CHECK-NEXT: hsv.y	a0, (zero)
+// CHECK-ASM-SAME: # encoding: [0x73,0x40,0xa0,0x72]
+// CHECK-CAP-MODE-DISASM-NEXT: 72a04073 <unknown>
+// ERR-RVY: :[[#@LINE+1]]:12: error: operand must be a GPR with optional zero immediate
+hsv.y a0, (zero)
 .ifdef RV64
 // CHECK-64: lr.d	a0, (zero)
 // CHECK-ASM-64-SAME: # encoding: [0x2f,0x35,0x00,0x10]
