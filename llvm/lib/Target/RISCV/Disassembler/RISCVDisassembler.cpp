@@ -689,7 +689,10 @@ static constexpr DecoderListEntry DecoderList16[]{
      "Xqccmt (Qualcomm 16-bit Table Jump Instructions)"},
     {DecoderTableXwchc16, {RISCV::FeatureVendorXwchc}, "WCH QingKe XW"},
     // Standard Extensions
-    // RVY instructions remap Zcf (RVY32) or Zcd (RVY64) encodings.
+    // RVY instructions remap C.MV and Zcf (RVY32) or Zcd (RVY64) encodings.
+    {DecoderTableRVYOnly16,
+     {RISCV::FeatureStdExtY},
+     "RVY-only 16-bit instructions"},
     {DecoderTableRVY32Only16,
      {RISCV::FeatureStdExtY},
      "RVY32-only 16-bit instructions"},
