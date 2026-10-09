@@ -73,48 +73,48 @@ defm AMOCAS_Q : AMO_cas_aq_rl<0b00101, 0b100, "amocas.q", GPRPairRV64>;
 multiclass AMOCASPat<string AtomicOp, string BaseInst, ValueType vt = XLenVT,
                      list<Predicate> ExtraPreds = []> {
   let Predicates = !listconcat([HasStdExtZacas, NoStdExtZtso], ExtraPreds) in {
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_monotonic") (XLenVT GPR:$addr),
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_monotonic") (PtrVT BasePtr:$addr),
                                                      (vt GPR:$cmp),
                                                      (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_acquire") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_acquire") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst#"_AQ") GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_release") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst#"_AQ") GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_release") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst#"_RL") GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_acq_rel") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst#"_RL") GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_acq_rel") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst#"_AQRL") GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_seq_cst") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst#"_AQRL") GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_seq_cst") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst#"_AQRL") GPR:$cmp, GPR:$new, GPR:$addr)>;
+              (!cast<RVInst>(BaseInst#"_AQRL") GPR:$cmp, GPR:$new, BasePtr:$addr)>;
   } // Predicates = !listconcat([HasStdExtZacas, NoStdExtZtso], ExtraPreds)
   let Predicates = !listconcat([HasStdExtZacas, HasStdExtZtso], ExtraPreds) in {
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_monotonic") (XLenVT GPR:$addr),
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_monotonic") (PtrVT BasePtr:$addr),
                                                      (vt GPR:$cmp),
                                                      (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_acquire") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_acquire") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_release") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_release") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_acq_rel") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_acq_rel") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, GPR:$addr)>;
-    def : Pat<(!cast<PatFrag>(AtomicOp#"_seq_cst") (XLenVT GPR:$addr),
+              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, BasePtr:$addr)>;
+    def : Pat<(!cast<PatFrag>(AtomicOp#"_seq_cst") (PtrVT BasePtr:$addr),
                                                    (vt GPR:$cmp),
                                                    (vt GPR:$new)),
-              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, GPR:$addr)>;
+              (!cast<RVInst>(BaseInst) GPR:$cmp, GPR:$new, BasePtr:$addr)>;
   } // Predicates = !listconcat([HasStdExtZacas, HasStdExtZtso], ExtraPreds)
 }
 
