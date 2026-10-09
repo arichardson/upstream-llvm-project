@@ -351,6 +351,13 @@ def SDTAtomic2 : SDTypeProfile<1, 2, [
   SDTCisSameAs<0,2>, SDTCisInt<0>, SDTCisPtrTy<1>
 ]>;
 
+def SDTAtomicCap3 : SDTypeProfile<1, 3, [
+  SDTCisSameAs<0,2>, SDTCisSameAs<0,3>, SDTCisPtrTy<0>, SDTCisPtrTy<1>
+]>;
+def SDTAtomicCap2 : SDTypeProfile<1, 2, [
+  SDTCisSameAs<0,2>, SDTCisPtrTy<0>, SDTCisPtrTy<1>
+]>;
+
 def SDTFPAtomic2 : SDTypeProfile<1, 2, [
   SDTCisSameAs<0,2>, SDTCisFP<0>, SDTCisPtrTy<1>
 ]>;
@@ -828,9 +835,13 @@ def atomic_fence : SDNode<"ISD::ATOMIC_FENCE" , SDTAtomicFence,
 
 def atomic_cmp_swap : SDNode<"ISD::ATOMIC_CMP_SWAP" , SDTAtomic3,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+def atomic_cmp_swap_cap : SDNode<"ISD::ATOMIC_CMP_SWAP", SDTAtomicCap3,
+                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 def atomic_load_add : SDNode<"ISD::ATOMIC_LOAD_ADD" , SDTAtomic2,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 def atomic_swap     : SDNode<"ISD::ATOMIC_SWAP", SDTAtomic2,
+                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+def atomic_swap_cap : SDNode<"ISD::ATOMIC_SWAP", SDTAtomicCap2,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 def atomic_load_sub : SDNode<"ISD::ATOMIC_LOAD_SUB" , SDTAtomic2,
                     [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
@@ -2117,6 +2128,8 @@ defm atomic_load_umax : binary_atomic_op<atomic_load_umax>;
 defm atomic_load_uinc_wrap : binary_atomic_op<atomic_load_uinc_wrap>;
 defm atomic_load_udec_wrap : binary_atomic_op<atomic_load_udec_wrap>;
 defm atomic_cmp_swap  : ternary_atomic_op<atomic_cmp_swap>;
+defm atomic_swap_cap     : binary_atomic_op_ord;
+defm atomic_cmp_swap_cap : ternary_atomic_op_ord;
 
 /// Atomic load which does not extend.
 def atomic_load_nonext :

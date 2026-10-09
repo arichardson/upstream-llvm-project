@@ -753,6 +753,7 @@ TargetLoweringBase::TargetLoweringBase(const TargetMachine &tm,
 
   MinCmpXchgSizeInBits = 0;
   SupportsUnalignedAtomics = false;
+  SupportsAtomicCapabilityOperations = false;
 
   MinimumBitTestCmps = MinimumBitTestCmpsOverride;
 }

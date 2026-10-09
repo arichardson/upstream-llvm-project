@@ -211,25 +211,22 @@ INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
 INITIALIZE_PASS_END(AtomicExpandLegacy, DEBUG_TYPE,
                     "Expand Atomic instructions", false, false)
 
-// Helper functions to retrieve the size of atomic instructions.
-static unsigned getAtomicOpSize(LoadInst *LI) {
-  const DataLayout &DL = LI->getDataLayout();
-  return DL.getTypeStoreSize(LI->getType());
+// Helper functions to retrieve the value type and size of atomic instructions.
+static Type *getAtomicOpValueType(Instruction *I) {
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getType();
+  if (auto *SI = dyn_cast<StoreInst>(I))
+    return SI->getValueOperand()->getType();
+  if (auto *RMWI = dyn_cast<AtomicRMWInst>(I))
+    return RMWI->getValOperand()->getType();
+  if (auto *CASI = dyn_cast<AtomicCmpXchgInst>(I))
+    return CASI->getCompareOperand()->getType();
+  llvm_unreachable("Unexpected atomic instruction");
 }
 
-static unsigned getAtomicOpSize(StoreInst *SI) {
-  const DataLayout &DL = SI->getDataLayout();
-  return DL.getTypeStoreSize(SI->getValueOperand()->getType());
-}
-
-static unsigned getAtomicOpSize(AtomicRMWInst *RMWI) {
-  const DataLayout &DL = RMWI->getDataLayout();
-  return DL.getTypeStoreSize(RMWI->getValOperand()->getType());
-}
-
-static unsigned getAtomicOpSize(AtomicCmpXchgInst *CASI) {
-  const DataLayout &DL = CASI->getDataLayout();
-  return DL.getTypeStoreSize(CASI->getCompareOperand()->getType());
+static unsigned getAtomicOpSize(Instruction *I) {
+  const DataLayout &DL = I->getDataLayout();
+  return DL.getTypeStoreSize(getAtomicOpValueType(I));
 }
 
 /// Copy metadata that's safe to preserve when widening atomics.
@@ -270,8 +267,12 @@ template <typename Inst>
 static bool atomicSizeSupported(const TargetLowering *TLI, Inst *I) {
   unsigned Size = getAtomicOpSize(I);
   Align Alignment = I->getAlign();
+  if (Alignment < Size)
+    return false;
+  if (I->getDataLayout().hasExternalState(getAtomicOpValueType(I)))
+    return TLI->supportsAtomicCapabilityOperations();
   unsigned MaxSize = TLI->getMaxAtomicSizeInBitsSupported() / 8;
-  return Alignment >= Size && Size <= MaxSize;
+  return Size <= MaxSize;
 }
 
 template <typename Inst>
@@ -286,6 +287,15 @@ static void writeUnsupportedAtomicSizeReason(const TargetLowering *TLI, Inst *I,
        << " is smaller than the required " << Size
        << "-byte alignment for this atomic operation";
     NeedSeparator = true;
+  }
+
+  if (I->getDataLayout().hasExternalState(getAtomicOpValueType(I))) {
+    if (!TLI->supportsAtomicCapabilityOperations()) {
+      if (NeedSeparator)
+        OS << "; ";
+      OS << "target does not support capability atomic operations";
+    }
+    return;
   }
 
   unsigned MaxSize = TLI->getMaxAtomicSizeInBitsSupported() / 8;
@@ -461,7 +471,8 @@ bool AtomicExpandImpl::processAtomicInstr(Instruction *I) {
     // TODO: when we're ready to make the change at the IR level, we can
     // extend convertCmpXchgToInteger for floating point too.
     bool MadeChange = false;
-    if (CASI->getCompareOperand()->getType()->isPointerTy()) {
+    Type *CmpTy = CASI->getCompareOperand()->getType();
+    if (CmpTy->isPointerTy() && !DL->hasExternalState(CmpTy)) {
       // TODO: add a TLI hook to control this so that each target can
       // convert to lowering the original type one at a time.
       CASI = convertCmpXchgToIntegerType(CASI);
@@ -592,6 +603,8 @@ bool AtomicExpandImpl::bracketInstWithFences(Instruction *I,
 /// Get the iX type with the same bitwidth as T.
 IntegerType *
 AtomicExpandImpl::getCorrespondingIntegerType(Type *T, const DataLayout &DL) {
+  assert(!DL.hasExternalState(T) &&
+         "Cannot convert pointer with external state to integer");
   EVT VT = TLI->getMemValueType(DL, T);
   unsigned BitWidth = VT.getStoreSizeInBits();
   assert(BitWidth == VT.getSizeInBits() && "must be a power of two");
@@ -2145,7 +2158,8 @@ bool AtomicExpandImpl::expandAtomicOpToLibcall(
   IRBuilder<> Builder(I);
   IRBuilder<> AllocaBuilder(&I->getFunction()->getEntryBlock().front());
 
-  bool UseSizedLibcall = canUseSizedAtomicCall(Size, Alignment, DL);
+  bool UseSizedLibcall = !DL.hasExternalState(getAtomicOpValueType(I)) &&
+                         canUseSizedAtomicCall(Size, Alignment, DL);
   Type *SizedIntTy = Type::getIntNTy(Ctx, Size * 8);
 
   if (M->getTargetTriple().isOSWindows() && M->getTargetTriple().isX86_64() &&
@@ -2158,7 +2172,9 @@ bool AtomicExpandImpl::expandAtomicOpToLibcall(
     SizedIntTy = FixedVectorType::get(Type::getInt64Ty(Ctx), 2);
   }
 
-  const Align AllocaAlignment = DL.getPrefTypeAlign(SizedIntTy);
+  const Align AllocaAlignment =
+      std::max(DL.getPrefTypeAlign(SizedIntTy),
+               DL.getPrefTypeAlign(getAtomicOpValueType(I)));
 
   // TODO: the "order" argument type is "int", not int32. So
   // getInt32Ty may be wrong if the arch uses e.g. 16-bit ints.
@@ -2252,7 +2268,8 @@ bool AtomicExpandImpl::expandAtomicOpToLibcall(
   // that property, we'd need to extend this mechanism to support AS-specific
   // families of atomic intrinsics.
   Value *PtrVal = PointerOperand;
-  PtrVal = Builder.CreateAddrSpaceCast(PtrVal, PointerType::getUnqual(Ctx));
+  if (!DL.hasExternalState(PtrVal->getType()))
+    PtrVal = Builder.CreateAddrSpaceCast(PtrVal, PointerType::getUnqual(Ctx));
   Args.push_back(PtrVal);
 
   // 'expected' argument, if present.

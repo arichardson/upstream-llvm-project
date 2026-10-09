@@ -3340,30 +3340,36 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
 
     SDValue ExtRes = Res;
     SDValue LHS = Res;
-    SDValue RHS = Node->getOperand(1);
+    SDValue RHS = Node->getOperand(2);
 
     EVT AtomicType = cast<AtomicSDNode>(Node)->getMemoryVT();
     EVT OuterType = Node->getValueType(0);
-    switch (TLI.getExtendForAtomicOps()) {
-    case ISD::SIGN_EXTEND:
-      LHS = DAG.getNode(ISD::AssertSext, dl, OuterType, Res,
-                        DAG.getValueType(AtomicType));
-      RHS = DAG.getNode(ISD::SIGN_EXTEND_INREG, dl, OuterType,
-                        Node->getOperand(2), DAG.getValueType(AtomicType));
-      ExtRes = LHS;
-      break;
-    case ISD::ZERO_EXTEND:
-      LHS = DAG.getNode(ISD::AssertZext, dl, OuterType, Res,
-                        DAG.getValueType(AtomicType));
-      RHS = DAG.getZeroExtendInReg(Node->getOperand(2), dl, AtomicType);
-      ExtRes = LHS;
-      break;
-    case ISD::ANY_EXTEND:
-      LHS = DAG.getZeroExtendInReg(Res, dl, AtomicType);
-      RHS = DAG.getZeroExtendInReg(Node->getOperand(2), dl, AtomicType);
-      break;
-    default:
-      llvm_unreachable("Invalid atomic op extension");
+    if (OuterType.isCheriCapability()) {
+      EVT AddrVT = MVT::getIntegerVT(OuterType.getFixedSizeInBits() / 2);
+      LHS = DAG.getNode(ISD::PTRTOADDR, dl, AddrVT, LHS);
+      RHS = DAG.getNode(ISD::PTRTOADDR, dl, AddrVT, RHS);
+    } else if (AtomicType != OuterType) {
+      switch (TLI.getExtendForAtomicOps()) {
+      case ISD::SIGN_EXTEND:
+        LHS = DAG.getNode(ISD::AssertSext, dl, OuterType, Res,
+                          DAG.getValueType(AtomicType));
+        RHS = DAG.getNode(ISD::SIGN_EXTEND_INREG, dl, OuterType, RHS,
+                          DAG.getValueType(AtomicType));
+        ExtRes = LHS;
+        break;
+      case ISD::ZERO_EXTEND:
+        LHS = DAG.getNode(ISD::AssertZext, dl, OuterType, Res,
+                          DAG.getValueType(AtomicType));
+        RHS = DAG.getZeroExtendInReg(RHS, dl, AtomicType);
+        ExtRes = LHS;
+        break;
+      case ISD::ANY_EXTEND:
+        LHS = DAG.getZeroExtendInReg(Res, dl, AtomicType);
+        RHS = DAG.getZeroExtendInReg(RHS, dl, AtomicType);
+        break;
+      default:
+        llvm_unreachable("Invalid atomic op extension");
+      }
     }
 
     SDValue Success =

@@ -2290,6 +2290,12 @@ public:
     return MaxAtomicSizeInBitsSupported;
   }
 
+  /// Returns true if the target supports atomic operations on CHERI
+  /// capabilities.
+  bool supportsAtomicCapabilityOperations() const {
+    return SupportsAtomicCapabilityOperations;
+  }
+
   /// Returns the size in bits of the maximum div/rem the backend supports.
   /// Larger operations will be expanded by ExpandIRInsts.
   unsigned getMaxDivRemBitWidthSupported() const {
@@ -2561,7 +2567,9 @@ public:
   shouldCastAtomicRMWIInIR(AtomicRMWInst *RMWI) const {
     Type *ValTy = RMWI->getValOperand()->getType();
     if (RMWI->getOperation() == AtomicRMWInst::Xchg &&
-        (ValTy->isFloatingPointTy() || ValTy->isPointerTy() ||
+        (ValTy->isFloatingPointTy() ||
+         (ValTy->isPointerTy() &&
+          !RMWI->getDataLayout().hasExternalState(ValTy)) ||
          ValTy->isVectorTy()))
       return AtomicExpansionKind::CastToInteger;
 
@@ -3011,6 +3019,11 @@ protected:
   /// AtomicExpandPass into an __atomic_* library call.
   void setMaxAtomicSizeInBitsSupported(unsigned SizeInBits) {
     MaxAtomicSizeInBitsSupported = SizeInBits;
+  }
+
+  /// Sets whether atomic operations on CHERI capabilities are supported.
+  void setSupportsAtomicCapabilityOperations(bool Supported = true) {
+    SupportsAtomicCapabilityOperations = Supported;
   }
 
   /// Set the size in bits of the maximum div/rem the backend supports.
@@ -3899,6 +3912,10 @@ private:
 
   /// This indicates if the target supports unaligned atomic operations.
   bool SupportsUnalignedAtomics;
+
+  /// This indicates if the target supports atomic operations on CHERI
+  /// capabilities.
+  bool SupportsAtomicCapabilityOperations;
 
   /// If set to a physical register, this specifies the register that
   /// llvm.savestack/llvm.restorestack should save and restore.
