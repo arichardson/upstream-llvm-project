@@ -5288,6 +5288,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (IsIAMCU && types::isCXX(Input.getType()))
     D.Diag(diag::err_drv_clang_unsupported) << "C++ for IAMCU";
 
+  if (Triple.isRISCV() && Input.getType() != types::TY_Asm &&
+      Input.getType() != types::TY_PP_Asm) {
+    StringRef ABIName = riscv::getRISCVABI(Args, Triple);
+    if (ABIName.starts_with_insensitive("il32pc64") ||
+        ABIName.starts_with_insensitive("l64pc128"))
+      D.Diag(diag::err_drv_clang_unsupported)
+          << ("non-assembly input for ABI '" + ABIName + "'").str();
+  }
+
   // Invoke ourselves in -cc1 mode.
   //
   // FIXME: Implement custom jobs for internal actions.

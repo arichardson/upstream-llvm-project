@@ -182,6 +182,14 @@ public:
       ABI = Name;
       return true;
     }
+
+    if (Name == "il32pc64" || Name == "il32pc64f" || Name == "il32pc64d" ||
+        Name == "il32pc64e") {
+      ABI = Name;
+      PointerWidth = PointerAlign = 64;
+      resetDataLayout();
+      return true;
+    }
     return false;
   }
 
@@ -211,6 +219,13 @@ public:
 
     if (Name == "lp64" || Name == "lp64f" || Name == "lp64d") {
       ABI = Name;
+      return true;
+    }
+
+    if (Name == "l64pc128" || Name == "l64pc128f" || Name == "l64pc128d") {
+      ABI = Name;
+      PointerWidth = PointerAlign = 128;
+      resetDataLayout();
       return true;
     }
     return false;

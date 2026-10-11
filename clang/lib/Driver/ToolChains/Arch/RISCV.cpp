@@ -368,6 +368,9 @@ std::string riscv::getRISCVArch(const llvm::opt::ArgList &Args,
   // lp64e -> rv64e
   // ilp32 | ilp32f | ilp32d -> rv32imafdc
   // lp64 | lp64f | lp64d -> rv64imafdc
+  // il32pc64e -> rv32y0p910
+  // il32pc64 | il32pc64f | il32pc64d -> rv32y0p910mafdc
+  // l64pc128 | l64pc128f | l64pc128d -> rv64y0p910mafdc
   if (const Arg *A = Args.getLastArg(options::OPT_mabi_EQ)) {
     StringRef MABI = A->getValue();
 
@@ -384,6 +387,12 @@ std::string riscv::getRISCVArch(const llvm::opt::ArgList &Args,
         return "rva22u64_v";
       return "rv64imafdc";
     }
+    if (MABI.equals_insensitive("il32pc64e"))
+      return "rv32y0p910";
+    if (MABI.starts_with_insensitive("il32pc64"))
+      return "rv32y0p910mafdc";
+    if (MABI.starts_with_insensitive("l64pc128"))
+      return "rv64y0p910mafdc";
   }
 
   // 4. Choose a default based on the triple

@@ -2029,3 +2029,51 @@
 // RUN:   -march=rv64i_zvfbdota32f0p2 -E -dM %s \
 // RUN:   -o - | FileCheck --check-prefix=CHECK-ZVFBDOTA32F-EXT %s
 // CHECK-ZVFBDOTA32F-EXT: __riscv_zvfbdota32f 2000{{$}}
+
+// RUN: %clang --target=riscv32 -menable-experimental-extensions \
+// RUN:   -march=rv32i_zyhybrid0p910 -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-ZYHYBRID-EXT %s
+// RUN: %clang --target=riscv64 -menable-experimental-extensions \
+// RUN:   -march=rv64i_zyhybrid0p910 -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-ZYHYBRID-EXT %s
+// CHECK-ZYHYBRID-EXT-NOT: __riscv_y
+// CHECK-ZYHYBRID-EXT: __riscv_zyhybrid 910000{{$}}
+
+// RUN: %clang --target=riscv32 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv32y0p910_zylg0p910_zybndsrdw0p910 -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefixes=CHECK-RVY-EXT,CHECK-IL32PC64 %s
+// RUN: %clang --target=riscv64 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv64y0p910_zylg0p910_zybndsrdw0p910 -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefixes=CHECK-RVY-EXT,CHECK-L64PC128 %s
+// CHECK-IL32PC64-NOT: _ILP32
+// CHECK-L64PC128-NOT: _LP64
+// CHECK-IL32PC64: #define __POINTER_WIDTH__ 64{{$}}
+// CHECK-L64PC128: #define __POINTER_WIDTH__ 128{{$}}
+// CHECK-IL32PC64: #define __SIZEOF_POINTER__ 8{{$}}
+// CHECK-L64PC128: #define __SIZEOF_POINTER__ 16{{$}}
+// CHECK-RVY-EXT: #define __riscv_float_abi_soft 1{{$}}
+// CHECK-RVY-EXT: #define __riscv_y 910000{{$}}
+// CHECK-RVY-EXT: #define __riscv_zybndsrdw 910000{{$}}
+// CHECK-RVY-EXT: #define __riscv_zylg 910000{{$}}
+
+// RUN: %clang --target=riscv32 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv32y0p910f -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-RVY-FLOAT-SINGLE %s
+// RUN: %clang --target=riscv64 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv64y0p910f -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-RVY-FLOAT-SINGLE %s
+// CHECK-RVY-FLOAT-SINGLE: #define __riscv_float_abi_single 1{{$}}
+
+// RUN: %clang --target=riscv32 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv32y0p910fd -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-RVY-FLOAT-DOUBLE %s
+// RUN: %clang --target=riscv64 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv64y0p910fd -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-RVY-FLOAT-DOUBLE %s
+// CHECK-RVY-FLOAT-DOUBLE: #define __riscv_float_abi_double 1{{$}}
+
+// RUN: %clang --target=riscv32 -menable-experimental-extensions \
+// RUN:   -x assembler-with-cpp -march=rv32y0p910 -mabi=il32pc64e -E -dM %s \
+// RUN:   -o - | FileCheck --check-prefix=CHECK-IL32PC64E %s
+// CHECK-IL32PC64E: #define __riscv_abi_rve 1{{$}}
+

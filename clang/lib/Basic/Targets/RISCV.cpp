@@ -165,14 +165,16 @@ void RISCVTargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__riscv_cmodel_large");
 
   StringRef ABIName = getABI();
-  if (ABIName == "ilp32f" || ABIName == "lp64f")
+  if (ABIName == "ilp32f" || ABIName == "il32pc64f" || ABIName == "lp64f" ||
+      ABIName == "l64pc128f")
     Builder.defineMacro("__riscv_float_abi_single");
-  else if (ABIName == "ilp32d" || ABIName == "lp64d")
+  else if (ABIName == "ilp32d" || ABIName == "il32pc64d" ||
+           ABIName == "lp64d" || ABIName == "l64pc128d")
     Builder.defineMacro("__riscv_float_abi_double");
   else
     Builder.defineMacro("__riscv_float_abi_soft");
 
-  if (ABIName == "ilp32e" || ABIName == "lp64e")
+  if (ABIName == "ilp32e" || ABIName == "il32pc64e" || ABIName == "lp64e")
     Builder.defineMacro("__riscv_abi_rve");
 
   Builder.defineMacro("__riscv_arch_test");
@@ -428,7 +430,7 @@ bool RISCVTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
   }
 
   if (ABI.empty())
-    ABI = ISAInfo->computeDefaultABI().str();
+    setABI(ISAInfo->computeDefaultABI().str());
 
   if (ISAInfo->hasExtension("zfh") || ISAInfo->hasExtension("zhinx"))
     HasFastHalfType = true;
@@ -438,6 +440,14 @@ bool RISCVTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 
   if (llvm::is_contained(Features, "+experimental"))
     HasExperimental = true;
+
+  if ((StringRef(ABI).starts_with("il32pc64") ||
+       StringRef(ABI).starts_with("l64pc128")) &&
+      !ISAInfo->hasExtension("y")) {
+    Diags.Report(diag::err_invalid_feature_combination)
+        << ("'" + ABI + "' ABI is only supported for RVY targets");
+    return false;
+  }
 
   if (ABI == "ilp32e" && ISAInfo->hasExtension("d")) {
     Diags.Report(diag::err_invalid_feature_combination)

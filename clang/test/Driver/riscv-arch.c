@@ -154,6 +154,40 @@
 // CHECK-LP64D-SAME: {{^}} "-target-feature" "+d"
 // CHECK-LP64D-SAME: {{^}} "-target-feature" "+c"
 
+// RUN: %clang --target=riscv32-unknown-elf -x assembler -mabi=il32pc64e \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-IL32PC64E %s
+// CHECK-IL32PC64E: "-target-feature" "+i"
+// CHECK-IL32PC64E-SAME: {{^}} "-target-feature" "+experimental-y"
+// CHECK-IL32PC64E-NOT: "-target-feature" "+m"
+
+// RUN: %clang --target=riscv32-unknown-elf -x assembler -mabi=il32pc64 \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-RVY-IMAFDC %s
+// RUN: %clang --target=riscv32-unknown-elf -x assembler -mabi=il32pc64f \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-RVY-IMAFDC %s
+// RUN: %clang --target=riscv32-unknown-elf -x assembler -mabi=il32pc64d \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-RVY-IMAFDC %s
+// RUN: %clang --target=riscv64-unknown-elf -x assembler -mabi=l64pc128 \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-RVY-IMAFDC %s
+// RUN: %clang --target=riscv64-unknown-elf -x assembler -mabi=l64pc128f \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-RVY-IMAFDC %s
+// RUN: %clang --target=riscv64-unknown-elf -x assembler -mabi=l64pc128d \
+// RUN:   -menable-experimental-extensions -### %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-RVY-IMAFDC %s
+
+// CHECK-RVY-IMAFDC: "-target-feature" "+i"
+// CHECK-RVY-IMAFDC-SAME: {{^}} "-target-feature" "+experimental-y"
+// CHECK-RVY-IMAFDC-SAME: {{^}} "-target-feature" "+m"
+// CHECK-RVY-IMAFDC-SAME: {{^}} "-target-feature" "+a"
+// CHECK-RVY-IMAFDC-SAME: {{^}} "-target-feature" "+f"
+// CHECK-RVY-IMAFDC-SAME: {{^}} "-target-feature" "+d"
+// CHECK-RVY-IMAFDC-SAME: {{^}} "-target-feature" "+c"
+
 // CHECK-NOT: error: invalid arch name '
 
 // RUN: not %clang --target=riscv32-unknown-elf -march=rv32 -### %s \
