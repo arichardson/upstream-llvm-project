@@ -1726,6 +1726,7 @@ constexpr EnumStringDef<unsigned, 2> ElfHeaderRISCVFlagsDefs[] = {
     ENUM_ENT(EF_RISCV_FLOAT_ABI_QUAD, "quad-float ABI"),
     ENUM_ENT(EF_RISCV_RVE, "RVE"),
     ENUM_ENT(EF_RISCV_TSO, "TSO"),
+    ENUM_ENT(EF_RISCV_RVY, "RVY"),
 };
 constexpr auto ElfHeaderRISCVFlags =
     BUILD_ENUM_STRINGS(ElfHeaderRISCVFlagsDefs);

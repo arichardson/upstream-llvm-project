@@ -121,27 +121,35 @@ void RISCVTargetELFStreamer::finish() {
 
   switch (ABI) {
   case RISCVABI::ABI_ILP32:
-  case RISCVABI::ABI_IL32PC64:
   case RISCVABI::ABI_LP64:
+    break;
+  case RISCVABI::ABI_IL32PC64:
   case RISCVABI::ABI_L64PC128:
+    EFlags |= ELF::EF_RISCV_RVY;
     break;
   case RISCVABI::ABI_ILP32F:
-  case RISCVABI::ABI_IL32PC64F:
   case RISCVABI::ABI_LP64F:
-  case RISCVABI::ABI_L64PC128F:
     EFlags |= ELF::EF_RISCV_FLOAT_ABI_SINGLE;
     break;
+  case RISCVABI::ABI_IL32PC64F:
+  case RISCVABI::ABI_L64PC128F:
+    EFlags |= ELF::EF_RISCV_FLOAT_ABI_SINGLE | ELF::EF_RISCV_RVY;
+    break;
   case RISCVABI::ABI_ILP32D:
-  case RISCVABI::ABI_IL32PC64D:
   case RISCVABI::ABI_LP64D:
-  case RISCVABI::ABI_L64PC128D:
     EFlags |= ELF::EF_RISCV_FLOAT_ABI_DOUBLE;
     break;
+  case RISCVABI::ABI_IL32PC64D:
+  case RISCVABI::ABI_L64PC128D:
+    EFlags |= ELF::EF_RISCV_FLOAT_ABI_DOUBLE | ELF::EF_RISCV_RVY;
+    break;
   case RISCVABI::ABI_ILP32E:
-  case RISCVABI::ABI_IL32PC64E:
   case RISCVABI::ABI_LP64E:
   case RISCVABI::ABI_CHERIOT:
     EFlags |= ELF::EF_RISCV_RVE;
+    break;
+  case RISCVABI::ABI_IL32PC64E:
+    EFlags |= ELF::EF_RISCV_RVE | ELF::EF_RISCV_RVY;
     break;
   case RISCVABI::ABI_Unknown:
     break;

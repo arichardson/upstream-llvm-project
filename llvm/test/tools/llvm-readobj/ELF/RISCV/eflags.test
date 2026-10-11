@@ -1,9 +1,9 @@
 ## Check llvm-readobj's ability to decode the 2-bit EF_RISCV_FLOAT_ABI field
 ## of e_flags as an enum, rather than as independent bits. Also check that
 ## the other, independent e_flags bits (EF_RISCV_RVC, EF_RISCV_RVE,
-## EF_RISCV_TSO) set alongside it are still decoded correctly. Each ABI
-## value is paired with a different subset of the independent bits so that
-## each bit, and a combination of all of them, gets covered.
+## EF_RISCV_TSO, EF_RISCV_RVY) set alongside it are still decoded correctly.
+## Each ABI value is paired with a different subset of the independent bits so
+## that each bit, and a combination of all of them, gets covered.
 
 # RUN: yaml2obj %s -o %t-soft -DABI=SOFT -DEXTRA=EF_RISCV_RVC
 # RUN: llvm-readobj -h %t-soft | FileCheck --check-prefix=READOBJ-SOFT %s
@@ -13,11 +13,11 @@
 # RUN: llvm-readobj -h %t-single | FileCheck --check-prefix=READOBJ-SINGLE %s
 # RUN: llvm-readelf -h %t-single | FileCheck --check-prefix=READELF-SINGLE --match-full-lines %s
 
-# RUN: yaml2obj %s -o %t-double -DABI=DOUBLE -DEXTRA=EF_RISCV_TSO
+# RUN: yaml2obj %s -o %t-double -DABI=DOUBLE -DEXTRA="EF_RISCV_TSO, EF_RISCV_RVY"
 # RUN: llvm-readobj -h %t-double | FileCheck --check-prefix=READOBJ-DOUBLE %s
 # RUN: llvm-readelf -h %t-double | FileCheck --check-prefix=READELF-DOUBLE --match-full-lines %s
 
-# RUN: yaml2obj %s -o %t-quad -DABI=QUAD -DEXTRA="EF_RISCV_RVC, EF_RISCV_RVE, EF_RISCV_TSO"
+# RUN: yaml2obj %s -o %t-quad -DABI=QUAD -DEXTRA="EF_RISCV_RVC, EF_RISCV_RVE, EF_RISCV_TSO, EF_RISCV_RVY"
 # RUN: llvm-readobj -h %t-quad | FileCheck --check-prefix=READOBJ-QUAD %s
 # RUN: llvm-readelf -h %t-quad | FileCheck --check-prefix=READELF-QUAD --match-full-lines %s
 
@@ -30,22 +30,24 @@
 # READOBJ-SINGLE-NEXT:   EF_RISCV_RVE (0x8)
 # READOBJ-SINGLE-NEXT: ]
 
-# READOBJ-DOUBLE:      Flags [ (0x14)
+# READOBJ-DOUBLE:      Flags [ (0x54)
 # READOBJ-DOUBLE-NEXT:   EF_RISCV_FLOAT_ABI_DOUBLE (0x4)
+# READOBJ-DOUBLE-NEXT:   EF_RISCV_RVY (0x40)
 # READOBJ-DOUBLE-NEXT:   EF_RISCV_TSO (0x10)
 # READOBJ-DOUBLE-NEXT: ]
 
-# READOBJ-QUAD:      Flags [ (0x1F)
+# READOBJ-QUAD:      Flags [ (0x5F)
 # READOBJ-QUAD-NEXT:   EF_RISCV_FLOAT_ABI_QUAD (0x6)
 # READOBJ-QUAD-NEXT:   EF_RISCV_RVC (0x1)
 # READOBJ-QUAD-NEXT:   EF_RISCV_RVE (0x8)
+# READOBJ-QUAD-NEXT:   EF_RISCV_RVY (0x40)
 # READOBJ-QUAD-NEXT:   EF_RISCV_TSO (0x10)
 # READOBJ-QUAD-NEXT: ]
 
 # READELF-SOFT: Flags: 0x1, RVC
 # READELF-SINGLE: Flags: 0xa, single-float ABI, RVE
-# READELF-DOUBLE: Flags: 0x14, double-float ABI, TSO
-# READELF-QUAD: Flags: 0x1f, RVC, quad-float ABI, RVE, TSO
+# READELF-DOUBLE: Flags: 0x54, double-float ABI, TSO, RVY
+# READELF-QUAD: Flags: 0x5f, RVC, quad-float ABI, RVE, TSO, RVY
 
 --- !ELF
 FileHeader:

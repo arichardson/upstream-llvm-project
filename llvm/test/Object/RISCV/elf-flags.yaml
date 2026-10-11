@@ -1,11 +1,13 @@
 # RUN: yaml2obj %s -o %t
 # RUN: llvm-readobj --file-headers %t | FileCheck -check-prefix=OBJ %s
 # RUN: obj2yaml %t | FileCheck -check-prefix=YAML %s
+# RUN: llvm-objdump -d %t | FileCheck -check-prefix=DISASM %s
 
-# OBJ: Flags [ (0x1D)
+# OBJ: Flags [ (0x5D)
 # OBJ-NEXT:   EF_RISCV_FLOAT_ABI_DOUBLE (0x4)
 # OBJ-NEXT:   EF_RISCV_RVC (0x1)
 # OBJ-NEXT:   EF_RISCV_RVE (0x8)
+# OBJ-NEXT:   EF_RISCV_RVY (0x40)
 # OBJ-NEXT:   EF_RISCV_TSO (0x10)
 # OBJ-NEXT: ]
 
@@ -14,7 +16,9 @@
 # YAML-NEXT:   Data:            ELFDATA2LSB
 # YAML-NEXT:   Type:            ET_EXEC
 # YAML-NEXT:   Machine:         EM_RISCV
-# YAML-NEXT:   Flags:           [ EF_RISCV_RVC, EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_RVE, EF_RISCV_TSO ]
+# YAML-NEXT:   Flags:           [ EF_RISCV_RVC, EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_RVE, EF_RISCV_TSO, EF_RISCV_RVY ]
+
+# DISASM: 0005457b      yaddi   a0, a0, 0x0
 
 --- !ELF
 FileHeader:
@@ -22,4 +26,10 @@ FileHeader:
   Data:            ELFDATA2LSB
   Type:            ET_EXEC
   Machine:         EM_RISCV
-  Flags:           [ EF_RISCV_RVC, EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_RVE, EF_RISCV_TSO ]
+  Flags:           [ EF_RISCV_RVC, EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_RVE, EF_RISCV_TSO, EF_RISCV_RVY ]
+Sections:
+  - Name:            .text
+    Type:            SHT_PROGBITS
+    Flags:           [ SHF_ALLOC, SHF_EXECINSTR ]
+    Content:         7B450500
+

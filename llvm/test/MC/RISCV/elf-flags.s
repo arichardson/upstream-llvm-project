@@ -12,6 +12,8 @@
 # RUN:   | FileCheck -check-prefix=CHECK-RVE %s
 # RUN: llvm-mc -triple=riscv32 -mattr=+ztso -filetype=obj < %s | llvm-readobj --file-headers - | FileCheck -check-prefixes=CHECK-TSO %s
 # RUN: llvm-mc -triple=riscv64 -mattr=+ztso -filetype=obj < %s | llvm-readobj --file-headers - | FileCheck -check-prefixes=CHECK-TSO %s
+# RUN: llvm-mc -triple=riscv32 -mattr=+experimental-y -filetype=obj < %s | llvm-readobj --file-headers - | FileCheck -check-prefixes=CHECK-RVY %s
+# RUN: llvm-mc -triple=riscv64 -mattr=+experimental-y -filetype=obj < %s | llvm-readobj --file-headers - | FileCheck -check-prefixes=CHECK-RVY %s
 
 # CHECK-RVI:       Flags [ (0x0)
 # CHECK-RVI-NEXT:  ]
@@ -28,4 +30,9 @@
 # CHECK-NEXT-TSO      EF_RISCV_TSO (0x10)
 # CHECK-NEXT-TSO    ]
 
+# CHECK-RVY:        Flags [ (0x40)
+# CHECK-RVY-NEXT:     EF_RISCV_RVY (0x40)
+# CHECK-RVY-NEXT:   ]
+
 nop
+
