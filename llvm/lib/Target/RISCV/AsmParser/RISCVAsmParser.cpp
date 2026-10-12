@@ -1386,6 +1386,11 @@ static MCRegister convertGPRToYGPR(MCRegister Reg) {
   return Reg - RISCV::X0 + RISCV::X0_Y;
 }
 
+static MCRegister convertYGPRToGPR(MCRegister Reg) {
+  assert(Reg >= RISCV::X0_Y && Reg <= RISCV::X31_Y && "Invalid register");
+  return Reg - RISCV::X0_Y + RISCV::X0;
+}
+
 static MCRegister convertVRToVRMx(const MCRegisterInfo &RI, MCRegister Reg,
                                   unsigned Kind) {
   unsigned RegClassID;
@@ -1406,6 +1411,16 @@ static MCRegister convertFPR64ToFPR256(MCRegister Reg) {
   return Reg - RISCV::F0_D + RISCV::F0_Q2;
 }
 
+static bool regClassIsGPR(const MCRegisterClass &RC) {
+  assert(RC.getNumRegs() > 0);
+  return getRISCVMCRegisterClass(RISCV::GPRRegClassID).contains(*RC.begin());
+}
+
+static bool regClassIsYGPR(const MCRegisterClass &RC) {
+  assert(RC.getNumRegs() > 0);
+  return getRISCVMCRegisterClass(RISCV::YGPRRegClassID).contains(*RC.begin());
+}
+
 unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
                                                     unsigned Kind) {
   RISCVOperand &Op = static_cast<RISCVOperand &>(AsmOp);
@@ -1419,10 +1434,32 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
       getRISCVMCRegisterClass(RISCV::FPR64CRegClassID).contains(Reg);
   bool IsRegVR = getRISCVMCRegisterClass(RISCV::VRRegClassID).contains(Reg);
 
-  if (Op.isGPR() && Kind == MCK_YGPR) {
-    // GPR and capability GPR use the same register names, convert if required.
-    Op.Reg.Reg = convertGPRToYGPR(Reg);
-    return Match_Success;
+  // YGPR and GPR use the same register names in assembly, so we have to
+  // manually convert GPR operands to YGPR (and back if an earlier candidate
+  // mutated a GPR to YGPR) and check register restrictions (such as NoX0).
+  const MCRegisterClass *CheckRC =
+      Kind <= MCK_LAST_REGISTER
+          ? getRegClassFromMatchKind(static_cast<MatchClassKind>(Kind))
+          : nullptr;
+  if (CheckRC && regClassIsYGPR(*CheckRC)) {
+    if (Op.isGPR() || Op.isYGPR()) {
+      MCRegister YReg = Op.isGPR() ? convertGPRToYGPR(Reg) : Reg;
+      if (CheckRC->contains(YReg)) {
+        Op.Reg.Reg = YReg;
+        return Match_Success;
+      }
+    }
+    return getDiagKindFromRegisterClass(static_cast<MatchClassKind>(Kind));
+  }
+  if (CheckRC && regClassIsGPR(*CheckRC)) {
+    if (Op.isYGPR()) {
+      MCRegister XReg = convertYGPRToGPR(Reg);
+      if (CheckRC->contains(XReg)) {
+        Op.Reg.Reg = XReg;
+        return Match_Success;
+      }
+    }
+    return getDiagKindFromRegisterClass(static_cast<MatchClassKind>(Kind));
   }
   if (IsRegFPR64 && Kind == MCK_FPR256) {
     Op.Reg.Reg = convertFPR64ToFPR256(Reg);
@@ -3365,6 +3402,10 @@ bool RISCVAsmParser::parseDirectiveOption() {
       auto Ext = llvm::lower_bound(AllFeatures, Feature);
       if (Ext == std::end(AllFeatures) || StringRef(Ext->key()) != Feature)
         return Error(Loc, "unknown extension feature");
+
+      if (Ext->Value == RISCV::FeatureStdExtY)
+        return Error(Loc, "passing '+y'/'-y' is not supported yet; specify a "
+                          "full arch string instead");
 
       Args.emplace_back(Type, Arch.str());
 
