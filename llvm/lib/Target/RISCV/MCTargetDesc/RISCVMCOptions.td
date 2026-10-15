@@ -12,6 +12,8 @@ def RISCVMCOptions : OptionsStruct<prefix = "riscv-">;
 
 // AsmParser/RISCVAsmParser.cpp
 defm : BoolField<"riscv-add-build-attributes", "false", "">;
+defm : OptionalBoolField<"riscv-verify-mcinst",
+  "Verify emitted MCInsts in RISCVAsmParser">;
 
 // MCTargetDesc/RISCVAsmBackend.cpp
 defm : BoolField<"riscv-align-rvc", "true",

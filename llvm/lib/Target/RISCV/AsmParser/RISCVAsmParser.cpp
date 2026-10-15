@@ -3911,6 +3911,13 @@ void RISCVAsmParser::emitToStreamer(MCStreamer &S, const MCInst &Inst) {
   MCInst CInst;
   bool Res = false;
   const MCSubtargetInfo &STI = getSTI();
+#ifdef EXPENSIVE_CHECKS
+  constexpr bool VerifyByDefault = true;
+#else
+  constexpr bool VerifyByDefault = false;
+#endif
+  bool VerifyMCInst =
+      valueOr(RISCVMCOptions::Global.verify_mcinst, VerifyByDefault);
   if (VerifyMCInst)
     validateInstructionPreEmit(Inst, STI);
   if (!STI.hasFeature(RISCV::FeatureExactAssembly))
