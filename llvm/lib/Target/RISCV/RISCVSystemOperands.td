@@ -36,6 +36,8 @@ class SysReg<string name, bits<12> op, bit RV32Only = false> {
   bit isRV32Only = RV32Only;
   bit isAltName = false;
   bit isDeprecatedName = false;
+  bit isAlwaysYLEN = false;
+  bit isWidenedToYLEN = false;
 }
 
 class AltSysRegName<string name, bits<12> op, bit RV32Only = false>
@@ -53,7 +55,8 @@ def SysRegsList : GenericTable {
   // FIXME: add "ReadWrite", "Mode", "Extra", "Number" fields when needed.
   let Fields = [
     "Name", "Encoding", "FeaturesRequired",
-    "isRV32Only", "isAltName", "isDeprecatedName"
+    "isRV32Only", "isAltName", "isDeprecatedName",
+    "isAlwaysYLEN", "isWidenedToYLEN"
   ];
 
   let PrimaryKey = [ "Encoding" ];
@@ -111,14 +114,17 @@ def SEED : SysReg<"seed", 0x015>;
 // Unprivileged Zcmt Extension CSR
 //===-----------------------------------------------
 
+let isWidenedToYLEN = true in
 def : SysReg<"jvt", 0x017>;
 
 //===----------------------------------------------------------------------===//
 // Unprivileged CHERI (Y / Zyhybrid) Extension CSRs
 //===----------------------------------------------------------------------===//
 
+let isAlwaysYLEN = true in {
 def : SysReg<"ddc", 0x03F>;
 def : SysReg<"utidc", 0x07F>;
+}
 
 //===----------------------------------------------------------------------===//
 // Unprivileged Counter/Timers
@@ -146,6 +152,7 @@ foreach i = 3...31 in
 
 def : SysReg<"sstatus", 0x100>;
 def : SysReg<"sie", 0x104>;
+let isWidenedToYLEN = true in
 def : SysReg<"stvec", 0x105>;
 def : SysReg<"scounteren", 0x106>;
 def : SysReg<"sijt", 0x107>;
@@ -167,8 +174,10 @@ def : SysReg<"scountinhibit", 0x120>;
 // Supervisor Trap Handling
 //===----------------------------------------------------------------------===//
 
+let isWidenedToYLEN = true in {
 def : SysReg<"sscratch", 0x140>;
 def : SysReg<"sepc", 0x141>;
+}
 def : SysReg<"scause", 0x142>;
 def : SysReg<"stval", 0x143>;
 def : DeprecatedSysRegName<"sbadaddr", 0x143>;
@@ -179,6 +188,7 @@ def : SysReg<"stopsi", 0x148>;
 def : SysReg<"sspcs", 0x149>;
 def : SysReg<"siph", 0x154, RV32Only=true>;
 def : SysReg<"stopei", 0x15C>;
+let isAlwaysYLEN = true in
 def : SysReg<"stidc", 0x17F>;
 def : SysReg<"scountovf", 0xDA0>;
 def : SysReg<"stopi", 0xDB0>;
@@ -313,15 +323,19 @@ foreach i = 0...3 in {
 
 def : SysReg<"vsstatus", 0x200>;
 def : SysReg<"vsie", 0x204>;
+let isWidenedToYLEN = true in
 def : SysReg<"vstvec", 0x205>;
 def : SysReg<"vsieh", 0x214, RV32Only=true>;
+let isWidenedToYLEN = true in {
 def : SysReg<"vsscratch", 0x240>;
 def : SysReg<"vsepc", 0x241>;
+}
 def : SysReg<"vscause", 0x242>;
 def : SysReg<"vstval", 0x243>;
 def : SysReg<"vsip", 0x244>;
 def : SysReg<"vsiph", 0x254, RV32Only=true>;
 def : SysReg<"vstopei", 0x25C>;
+let isAlwaysYLEN = true in
 def : SysReg<"vstidc", 0x27F>;
 def : SysReg<"vsatp", 0x280>;
 def : SysReg<"vstopi", 0xEB0>;
@@ -371,6 +385,7 @@ def : SysReg<"misa", 0x301>;
 def : SysReg<"medeleg", 0x302>;
 def : SysReg<"mideleg", 0x303>;
 def : SysReg<"mie", 0x304>;
+let isWidenedToYLEN = true in
 def : SysReg<"mtvec", 0x305>;
 def : SysReg<"mcounteren", 0x306>;
 def : SysReg<"mijt", 0x307>;
@@ -387,8 +402,10 @@ def : SysReg<"mviph", 0x319, RV32Only=true>;
 // Machine Trap Handling
 //===----------------------------------------------------------------------===//
 
+let isWidenedToYLEN = true in {
 def : SysReg<"mscratch", 0x340>;
 def : SysReg<"mepc", 0x341>;
+}
 def : SysReg<"mcause", 0x342>;
 def : SysReg<"mtval", 0x343>;
 def : DeprecatedSysRegName<"mbadaddr", 0x343>;
@@ -401,6 +418,7 @@ def : SysReg<"mtinst", 0x34A>;
 def : SysReg<"mtval2", 0x34B>;
 def : SysReg<"miph", 0x354, RV32Only=true>;
 def : SysReg<"mtopei", 0x35C>;
+let isAlwaysYLEN = true in
 def : SysReg<"mtidc", 0x37F>;
 def : SysReg<"mtopi", 0xFB0>;
 
@@ -529,6 +547,7 @@ def : SysReg<"mscontext", 0x7AA>;
 //===----------------------------------------------------------------------===//
 
 def : SysReg<"dcsr", 0x7B0>;
+let isWidenedToYLEN = true in {
 def : SysReg<"dpc", 0x7B1>;
 
 // "dscratch" is an alternative name for "dscratch0" which appeared in earlier
@@ -536,9 +555,12 @@ def : SysReg<"dpc", 0x7B1>;
 def : SysReg<"dscratch0", 0x7B2>;
 def : AltSysRegName<"dscratch", 0x7B2>;
 def : SysReg<"dscratch1", 0x7B3>;
+}
 def : SysReg<"drootcsel", 0x7BD>;
+let isAlwaysYLEN = true in {
 def : SysReg<"drootc", 0x7BE>;
 def : SysReg<"dddc", 0x7BF>;
+}
 
 //===-----------------------------------------------
 // Vendor CSRs

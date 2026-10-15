@@ -260,18 +260,24 @@ constexpr auto DecodeGPRTCNonX7RegisterClass =
 constexpr auto DecodeYGPRTCNonX7RegisterClass =
     DecodeFilteredRegisterClass<DecodeYGPRTCRegisterClass, IsNonX7>;
 
-static DecodeStatus DecodeGPRS07RegisterClass(MCInst &Inst, uint32_t RegNo,
-                                              uint64_t Address,
-                                              const MCDisassembler *Decoder) {
+template <unsigned RegS0, unsigned RegS2>
+static DecodeStatus DecodeS07RegisterClass(MCInst &Inst, uint32_t RegNo,
+                                           uint64_t Address,
+                                           const MCDisassembler *Decoder) {
   // Only s0 and s1 exist on RVE, so sreg values above 1 are reserved.
   bool IsRVE = Decoder->getSubtargetInfo().hasFeature(RISCV::FeatureStdExtE);
   if (RegNo >= 8 || (IsRVE && RegNo > 1))
     return MCDisassembler::Fail;
 
-  MCRegister Reg = (RegNo < 2) ? (RegNo + RISCV::X8) : (RegNo - 2 + RISCV::X18);
+  MCRegister Reg = (RegNo < 2) ? (RegNo + RegS0) : (RegNo - 2 + RegS2);
   Inst.addOperand(MCOperand::createReg(Reg));
   return MCDisassembler::Success;
 }
+
+constexpr auto DecodeGPRS07RegisterClass =
+    DecodeS07RegisterClass<RISCV::X8, RISCV::X18>;
+constexpr auto DecodeYGPRS07RegisterClass =
+    DecodeS07RegisterClass<RISCV::X8_Y, RISCV::X18_Y>;
 
 template <unsigned RegisterClass, unsigned NumRegsInClass, unsigned LMul>
 static DecodeStatus DecodeVectorRegisterClass(MCInst &Inst, uint32_t RegNo,
@@ -538,12 +544,24 @@ static DecodeStatus decodeXqccmpRlistS0(MCInst &Inst, uint32_t Imm,
 static DecodeStatus decodeMvsa01Rs2Operand(MCInst &Inst, uint32_t RegNo,
                                            uint64_t Address,
                                            const MCDisassembler *Decoder) {
+  bool IsRVY = Decoder->getSubtargetInfo().hasFeature(RISCV::FeatureStdExtY);
   const DecodeStatus Result =
-      DecodeGPRS07RegisterClass(Inst, RegNo, Address, Decoder);
+      IsRVY ? DecodeYGPRS07RegisterClass(Inst, RegNo, Address, Decoder)
+            : DecodeGPRS07RegisterClass(Inst, RegNo, Address, Decoder);
   if (Result != MCDisassembler::Success)
     return Result;
   if (Inst.getOperand(0).getReg() == Inst.getOperand(1).getReg())
     return MCDisassembler::Fail;
+  return MCDisassembler::Success;
+}
+
+static DecodeStatus decodeYCSRSystemRegister(MCInst &Inst, uint64_t Imm,
+                                             int64_t Address,
+                                             const MCDisassembler *Decoder) {
+  assert(isUInt<12>(Imm) && "Invalid immediate");
+  if (!RISCVSysReg::isYLENCSR(Imm, Decoder->getSubtargetInfo().getFeatureBits()))
+    return MCDisassembler::Fail;
+  Inst.addOperand(MCOperand::createImm(Imm));
   return MCDisassembler::Success;
 }
 
@@ -633,6 +651,9 @@ static constexpr DecoderListEntry DecoderList32[]{
     {DecoderTableXSMT32, XSMTGroup, "SpacemiT extensions"},
     {DecoderTableXAIF32, XAIFGroup, "AI Foundry extensions"},
     // Standard Extensions
+    {DecoderTableRVYCSR32,
+     {RISCV::FeatureStdExtY, RISCV::FeatureStdExtZyhybrid},
+     "RVY YLEN CSR instructions"},
     {DecoderTable32, {}, "standard 32-bit instructions"},
     {DecoderTableRV32Only32, {}, "RV32-only standard 32-bit instructions"},
     {DecoderTableZfinx32, {}, "Zfinx (Float in Integer)"},

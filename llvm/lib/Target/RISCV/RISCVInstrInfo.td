@@ -819,15 +819,17 @@ class ALU_rr<bits<7> funct7, bits<3> funct3, string opcodestr,
 
 let hasNoSchedulingInfo = 1,
     hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
-class CSR_ir<bits<3> funct3, string opcodestr>
-    : RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd), (ins csr_sysreg:$imm12, GPR:$rs1),
+class CSR_ir<bits<3> funct3, string opcodestr, DAGOperand rdTy = GPR,
+             DAGOperand csrTy = csr_sysreg, DAGOperand rs1Ty = GPR>
+    : RVInstI<funct3, OPC_SYSTEM, (outs rdTy:$rd), (ins csrTy:$imm12, rs1Ty:$rs1),
               opcodestr, "$rd, $imm12, $rs1">, Sched<[WriteCSR, ReadCSR]>;
 
 let hasNoSchedulingInfo = 1,
     hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
-class CSR_ii<bits<3> funct3, string opcodestr>
-    : RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd),
-              (ins csr_sysreg:$imm12, uimm5:$rs1),
+class CSR_ii<bits<3> funct3, string opcodestr, DAGOperand rdTy = GPR,
+             DAGOperand csrTy = csr_sysreg>
+    : RVInstI<funct3, OPC_SYSTEM, (outs rdTy:$rd),
+              (ins csrTy:$imm12, uimm5:$rs1),
               opcodestr, "$rd, $imm12, $rs1">, Sched<[WriteCSR]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in

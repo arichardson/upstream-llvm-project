@@ -12,10 +12,17 @@ yadd f0, a0, a0
 
 /// Capability pointer mode disables Zcd on RV64 and Zcf on RV32 (Zcd remains
 /// valid on RV32Y). Both are restored in RVI compatibility mode.
+/// Mode-dependent CSRs (such as sepc) are XLEN in RVI compatibility mode and
+/// YLEN in capability pointer mode, while ddc is always YLEN.
 c.fld fa0, 0(a0)
 .ifndef RV64
 c.flw fa0, 0(a0)
 .endif
+csrw ddc, null
+csrw sepc, null
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:12: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:6: note: operand must be a YLEN system register
 
 ymodeswy
 c.fld fa0, 0(a0)
@@ -24,12 +31,19 @@ c.fld fa0, 0(a0)
 c.flw fa0, 0(a0)
 // RV32: :[[#@LINE-1]]:1: error: instruction requires the following: 'C' (Compressed Instructions) and 'F' (Single-Precision Floating-Point) or 'Zcf' (Compressed Single-Precision Floating-Point Instructions){{$}}
 .endif
+csrw ddc, null
+csrw sepc, null
 
 ymodeswi
 c.fld fa0, 0(a0)
 .ifndef RV64
 c.flw fa0, 0(a0)
 .endif
+csrw ddc, null
+csrw sepc, null
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:12: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:6: note: operand must be a YLEN system register
 
 /// The same applies to Zcmp/Zcmt on RV64 and Zclsd on RV32. Also verify that
 /// having D (on RV64) or F (on RV32) enabled alongside Zca without C does not

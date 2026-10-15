@@ -415,6 +415,7 @@ struct RISCVOperand final : public MCParsedAsmOperand {
   struct RegOp {
     MCRegister Reg;
     bool IsGPRAsFPR;
+    bool IsNull;
   };
 
   struct ExprOp {
@@ -430,6 +431,7 @@ struct RISCVOperand final : public MCParsedAsmOperand {
     const char *Data;
     unsigned Length;
     unsigned Encoding;
+    bool IsYLEN;
     // FIXME: Add the Encoding parsed fields as needed for checks,
     // e.g.: read/write or user/supervisor/machine privileges.
   };
@@ -710,7 +712,12 @@ public:
            VK == RISCV::S_QC_ACCESS;
   }
 
-  bool isCSRSystemRegister() const { return isSystemRegister(); }
+  bool isCSRSystemRegister() const {
+    return isSystemRegister() && !SysReg.IsYLEN;
+  }
+  bool isYCSRSystemRegister() const {
+    return isSystemRegister() && SysReg.IsYLEN;
+  }
 
   // If the last operand of the vsetvli/vsetvli instruction is a constant
   // expression, KindTy is Immediate.
@@ -1212,6 +1219,7 @@ public:
     auto Op = std::make_unique<RISCVOperand>(KindTy::Register);
     Op->Reg.Reg = Reg;
     Op->Reg.IsGPRAsFPR = IsGPRAsFPR;
+    Op->Reg.IsNull = (Reg == RISCV::X0_Y);
     Op->StartLoc = S;
     Op->EndLoc = E;
     return Op;
@@ -1235,12 +1243,13 @@ public:
     return Op;
   }
 
-  static std::unique_ptr<RISCVOperand> createSysReg(StringRef Str, SMLoc S,
-                                                    unsigned Encoding) {
+  static std::unique_ptr<RISCVOperand>
+  createSysReg(StringRef Str, SMLoc S, unsigned Encoding, bool IsYLEN) {
     auto Op = std::make_unique<RISCVOperand>(KindTy::SystemRegister);
     Op->SysReg.Data = Str.data();
     Op->SysReg.Length = Str.size();
     Op->SysReg.Encoding = Encoding;
+    Op->SysReg.IsYLEN = IsYLEN;
     Op->StartLoc = S;
     Op->EndLoc = S;
     return Op;
@@ -1498,7 +1507,7 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
     return getDiagKindFromRegisterClass(Kind);
   }
   if (CheckRC && regClassIsGPR(*CheckRC)) {
-    if (Op.isYGPR()) {
+    if (Op.isYGPR() && !Op.Reg.IsNull) {
       MCRegister XReg = convertYGPRToGPR(Reg);
       if (CheckRC->contains(XReg)) {
         Op.Reg.Reg = XReg;
@@ -2175,11 +2184,12 @@ ParseStatus RISCVAsmParser::parseCSRSystemRegister(OperandVector &Operands) {
             continue;
           if (Reg.haveRequiredFeatures(STI->getFeatureBits()))
             return RISCVOperand::createSysReg(
-                RISCVSysReg::getSysRegStr(Reg.Name), S, Imm);
+                RISCVSysReg::getSysRegStr(Reg.Name), S, Imm,
+                Reg.isYLEN(STI->getFeatureBits()));
         }
         // Accept an immediate representing an un-named Sys Reg if the range is
         // valid, regardless of the required features.
-        return RISCVOperand::createSysReg("", S, Imm);
+        return RISCVOperand::createSysReg("", S, Imm, /*IsYLEN=*/false);
       }
     }
     return std::unique_ptr<RISCVOperand>();
@@ -2247,8 +2257,8 @@ ParseStatus RISCVAsmParser::parseCSRSystemRegister(OperandVector &Operands) {
 
         return Error(S, ErrorMsg);
       }
-      Operands.push_back(
-          RISCVOperand::createSysReg(Identifier, S, SysReg->Encoding));
+      Operands.push_back(RISCVOperand::createSysReg(
+          Identifier, S, SysReg->Encoding, SysReg->isYLEN(FeatureBits)));
       return ParseStatus::Success;
     }
 

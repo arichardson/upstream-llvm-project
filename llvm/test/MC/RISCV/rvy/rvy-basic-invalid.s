@@ -63,3 +63,30 @@ sc.y a0, a1, (a2)
 // CHECK: :[[#@LINE-1]]:1: error: instruction requires the following: 'Zalrsc' (Load-Reserved/Store-Conditional){{$}}
 amoswap.y a0, a1, (a2)
 // CHECK: :[[#@LINE-1]]:1: error: instruction requires the following: 'Zaamo' (Atomic Memory Operations){{$}}
+
+/// The 'null' register alias is only accepted for YGPR operands of YLEN CSR
+/// instructions, not for XLEN CSRs or the integer bitmask operand of csrrs/csrrc.
+csrrw null, mstatus, a0
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:7: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:13: note: operand must be a YLEN system register
+csrrw a0, mstatus, null
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:20: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:11: note: operand must be a YLEN system register
+csrw mstatus, null
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:15: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:6: note: operand must be a YLEN system register
+csrrs null, drootcsel, zero
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:7: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:13: note: operand must be a YLEN system register
+csrrs a0, ddc, null
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:16: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:16: note: immediate must be an integer in the range [0, 31]
+csrrc a0, ddc, null
+// CHECK: :[[#@LINE-1]]:1: error: invalid instruction, any one of the following would fix this:
+// CHECK: :[[#@LINE-2]]:16: note: register must be a GPR
+// CHECK: :[[#@LINE-3]]:16: note: immediate must be an integer in the range [0, 31]

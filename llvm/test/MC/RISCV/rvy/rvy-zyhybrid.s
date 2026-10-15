@@ -50,6 +50,20 @@ c.lwsp a0, 0(sp)
 // CHECK-NEXT: #  <MCOperand Reg:X10>
 // CHECK-NEXT: #  <MCOperand Reg:X2>
 // CHECK-NEXT: #  <MCOperand Imm:0>>
+csrrw a0, ddc, a1
+// CHECK-ASM-AND-OBJ: csrrw	a0, ddc, a1
+// CHECK-SAME: # encoding: [0x73,0x95,0xf5,0x03]
+// CHECK-NEXT: # <MCInst #[[#MCINST_CSRRW_Y:]] CSRRW_Y{{$}}
+// CHECK-NEXT: #  <MCOperand Reg:X10_Y>
+// CHECK-NEXT: #  <MCOperand Imm:63>
+// CHECK-NEXT: #  <MCOperand Reg:X11_Y>>
+csrrw a0, sepc, a1
+// CHECK-ASM-AND-OBJ: csrrw	a0, sepc, a1
+// CHECK-SAME: # encoding: [0x73,0x95,0x15,0x14]
+// CHECK-NEXT: # <MCInst #[[#MCINST_CSRRW:]] CSRRW{{$}}
+// CHECK-NEXT: #  <MCOperand Reg:X10>
+// CHECK-NEXT: #  <MCOperand Imm:321>
+// CHECK-NEXT: #  <MCOperand Reg:X11>>
 
 ymodeswy
 // CHECK-ASM-AND-OBJ: ymodeswy
@@ -76,6 +90,20 @@ c.lwsp a0, 0(sp)
 // CHECK-NEXT: #  <MCOperand Reg:X10>
 // CHECK-NEXT: #  <MCOperand Reg:X2_Y>
 // CHECK-NEXT: #  <MCOperand Imm:0>>
+csrrw a0, ddc, a1
+// CHECK-ASM-AND-OBJ: csrrw	a0, ddc, a1
+// CHECK-SAME: # encoding: [0x73,0x95,0xf5,0x03]
+// CHECK-NEXT: # <MCInst #[[#MCINST_CSRRW_Y]] CSRRW_Y{{$}}
+// CHECK-NEXT: #  <MCOperand Reg:X10_Y>
+// CHECK-NEXT: #  <MCOperand Imm:63>
+// CHECK-NEXT: #  <MCOperand Reg:X11_Y>>
+csrrw a0, sepc, a1
+// CHECK-ASM-AND-OBJ: csrrw	a0, sepc, a1
+// CHECK-SAME: # encoding: [0x73,0x95,0x15,0x14]
+// CHECK-NEXT: # <MCInst #[[#MCINST_CSRRW_Y]] CSRRW_Y{{$}}
+// CHECK-NEXT: #  <MCOperand Reg:X10_Y>
+// CHECK-NEXT: #  <MCOperand Imm:321>
+// CHECK-NEXT: #  <MCOperand Reg:X11_Y>>
 
 // ATTR-RV32:      TagName: arch
 // ATTR-RV32-NEXT: Value: rv32y0p910_f2p2_c2p0_zicsr2p0_zyhybrid0p910_zca1p0{{$}}

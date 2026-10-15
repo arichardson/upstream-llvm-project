@@ -38,6 +38,23 @@ def ybndsw_imm : RISCVOp<XLenVT>, ImmLeaf<XLenVT, [{
   let OperandType = "OPERAND_UIMM9_YBNDSWI";
 }
 
+def YCSRSystemRegister : AsmOperandClass {
+  let Name = "YCSRSystemRegister";
+  let ParserMethod = "parseCSRSystemRegister";
+  let RenderMethod = "addCSRSystemRegisterOperands";
+  let PredicateMethod = "isYCSRSystemRegister";
+  let DiagnosticType = "InvalidYCSRSystemRegister";
+  let DiagnosticString = "operand must be a YLEN system register";
+}
+
+def csr_y_sysreg : RISCVOp, TImmLeaf<XLenVT, "return isUInt<12>(Imm);"> {
+  let ParserMatchClass = YCSRSystemRegister;
+  let PrintMethod = "printCSRSystemRegister";
+  let DecoderMethod = "decodeYCSRSystemRegister";
+  let hasCompleteDecoder = false;
+  let OperandType = "OPERAND_UIMM12";
+}
+
 //===----------------------------------------------------------------------===//
 // Instruction Formats and class templates
 //===----------------------------------------------------------------------===//
@@ -156,6 +173,41 @@ def PseudoLY : PseudoLoad<"ly", YGPRNoX0>;
 def SY : Store_rri<0b010, "sy", YGPR, opcode=OPC_RVY_A>,
          Sched<[/* TODO: WriteSTY, */ ReadStoreData, ReadMemBase]>;
 def PseudoSY : PseudoStore<"sy", YGPR>;
+
+//
+// Zicsr Instructions Accessing YLEN CSRs
+//
+// Placed in a separate DecoderNamespace because these share encodings with the
+// XLEN CSR instructions and are selected based on the CSR number and active
+// execution mode.
+let DecoderNamespace = "RVYCSR" in {
+def CSRRW_Y : CSR_ir<0b001, "csrrw", YGPR, csr_y_sysreg, YGPR>;
+def CSRRS_Y : CSR_ir<0b010, "csrrs", YGPR, csr_y_sysreg, GPR>;
+def CSRRC_Y : CSR_ir<0b011, "csrrc", YGPR, csr_y_sysreg, GPR>;
+
+def CSRRWI_Y : CSR_ii<0b101, "csrrwi", YGPR, csr_y_sysreg>;
+def CSRRSI_Y : CSR_ii<0b110, "csrrsi", YGPR, csr_y_sysreg>;
+def CSRRCI_Y : CSR_ii<0b111, "csrrci", YGPR, csr_y_sysreg>;
+} // DecoderNamespace = "RVYCSR"
+
+def : InstAlias<"csrr $rd, $csr", (CSRRS_Y YGPR:$rd, csr_y_sysreg:$csr,       X0)>;
+def : InstAlias<"csrw $csr, $rs", (CSRRW_Y     X0_Y, csr_y_sysreg:$csr, YGPR:$rs)>;
+def : InstAlias<"csrs $csr, $rs", (CSRRS_Y     X0_Y, csr_y_sysreg:$csr,  GPR:$rs)>;
+def : InstAlias<"csrc $csr, $rs", (CSRRC_Y     X0_Y, csr_y_sysreg:$csr,  GPR:$rs)>;
+
+def : InstAlias<"csrwi $csr, $imm", (CSRRWI_Y X0_Y, csr_y_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrsi $csr, $imm", (CSRRSI_Y X0_Y, csr_y_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrci $csr, $imm", (CSRRCI_Y X0_Y, csr_y_sysreg:$csr, uimm5:$imm)>;
+
+let EmitPriority = 0 in {
+def : InstAlias<"csrw $csr, $imm", (CSRRWI_Y X0_Y, csr_y_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrs $csr, $imm", (CSRRSI_Y X0_Y, csr_y_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrc $csr, $imm", (CSRRCI_Y X0_Y, csr_y_sysreg:$csr, uimm5:$imm)>;
+
+def : InstAlias<"csrrw $rd, $csr, $imm", (CSRRWI_Y YGPR:$rd, csr_y_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrrs $rd, $csr, $imm", (CSRRSI_Y YGPR:$rd, csr_y_sysreg:$csr, uimm5:$imm)>;
+def : InstAlias<"csrrc $rd, $csr, $imm", (CSRRCI_Y YGPR:$rd, csr_y_sysreg:$csr, uimm5:$imm)>;
+}
 } // Predicates = [HasRVYInstructions]
 
 //

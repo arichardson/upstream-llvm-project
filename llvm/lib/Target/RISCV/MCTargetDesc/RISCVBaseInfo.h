@@ -686,6 +686,8 @@ struct SysReg {
   bool IsRV32Only;
   bool IsAltName;
   bool IsDeprecatedName;
+  bool IsAlwaysYLEN;
+  bool IsWidenedToYLEN;
 
   bool haveRequiredFeatures(const FeatureBitset &ActiveFeatures) const {
     // Not in 32-bit mode.
@@ -696,11 +698,28 @@ struct SysReg {
       return true;
     return (FeaturesRequired & ActiveFeatures) == FeaturesRequired;
   }
+
+  bool isYLEN(const FeatureBitset &ActiveFeatures) const {
+    if (IsAlwaysYLEN)
+      return ActiveFeatures[RISCV::FeatureStdExtY] ||
+             ActiveFeatures[RISCV::FeatureStdExtZyhybrid];
+    if (IsWidenedToYLEN)
+      return ActiveFeatures[RISCV::FeatureStdExtY];
+    return false;
+  }
 };
 
 #define GET_SysRegEncodings_DECL
 #define GET_SysRegsList_DECL
 #include "RISCVGenSearchableTables.inc"
+
+inline bool isYLENCSR(unsigned Encoding, const FeatureBitset &ActiveFeatures) {
+  for (const auto &Reg : lookupSysRegByEncoding(Encoding)) {
+    if (Reg.haveRequiredFeatures(ActiveFeatures))
+      return Reg.isYLEN(ActiveFeatures);
+  }
+  return false;
+}
 } // end namespace RISCVSysReg
 
 namespace RISCVInsnOpcode {
